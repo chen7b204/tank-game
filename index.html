@@ -11,11 +11,36 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:no
 body{display:flex;justify-content:center;align-items:center;font-family:sans-serif;background:radial-gradient(ellipse at center,#0d1a0d 0%,#050d05 70%,#000 100%);}
 #game-wrap{position:relative;width:min(100vh*9/16,100vw);height:min(100vh,100vw*16/9);aspect-ratio:9/16;max-width:720px;max-height:1280px;background:#050d05;border:2px solid var(--neon-cyan);border-radius:4px;box-shadow:0 0 30px rgba(0,240,255,0.3);overflow:hidden;}
 #game{width:100%;height:100%;display:block;background:#0a140a;}
+#rotate-hint{display:none;position:fixed;inset:0;z-index:99;background:radial-gradient(ellipse at center,#0d1a0d 0%,#050d05 70%,#000 100%);flex-direction:column;align-items:center;justify-content:center;gap:30px;color:#00f0ff;text-align:center;touch-action:none;}
+#rotate-hint .phone-icon{font-size:90px;animation:rotphone 1.8s ease-in-out infinite;filter:drop-shadow(0 0 15px rgba(0,240,255,0.6));}
+#rotate-hint h2{font-size:32px;font-weight:bold;text-shadow:0 0 20px rgba(0,240,255,0.8);}
+#rotate-hint p{font-size:18px;color:#8fbc8f;line-height:1.8;}
+@keyframes rotphone{0%,20%{transform:rotate(0deg);}60%,100%{transform:rotate(90deg);}}
+/* 手机竖屏：隐藏游戏，提示横屏 */
+@media(pointer:coarse) and (orientation:portrait){
+  #game-wrap{display:none;}
+  #rotate-hint{display:flex;}
+}
+/* 手机横屏：旋转游戏容器铺满屏幕 */
+@media(pointer:coarse) and (orientation:landscape){
+  #game-wrap{
+    position:fixed;left:50%;top:50%;
+    transform:translate(-50%,-50%) rotate(90deg);
+    width:100vh;height:100vw;
+    max-width:none;max-height:none;
+    border:none;border-radius:0;box-shadow:none;
+  }
+}
 </style>
 </head>
 <body>
 <div id="game-wrap">
   <canvas id="game" width="720" height="1280"></canvas>
+</div>
+<div id="rotate-hint">
+  <div class="phone-icon">📱</div>
+  <h2>请横屏游玩</h2>
+  <p>请将手机旋转90度<br>横握手机以获得最佳体验</p>
 </div>
 <script>
 (function(){
@@ -76,9 +101,16 @@ window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
 // Touch controls (mobile)
 const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+const isRotated=()=>isTouch&&window.matchMedia('(pointer:coarse) and (orientation:landscape)').matches;
 const joy={active:false,id:null,ox:0,oy:0,dx:0,dy:0};
 let fireTouchId=null,touchFiring=false;
-function toCanvas(t){const r=canvas.getBoundingClientRect();return{x:(t.clientX-r.left)*(W/r.width),y:(t.clientY-r.top)*(H/r.height)};}
+function toCanvas(t){
+  if(isRotated()){
+    // 容器CSS旋转90度后的坐标映射
+    return{x:t.clientY*W/window.innerHeight,y:(window.innerWidth-t.clientX)*H/window.innerWidth};
+  }
+  const r=canvas.getBoundingClientRect();return{x:(t.clientX-r.left)*(W/r.width),y:(t.clientY-r.top)*(H/r.height)};
+}
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();
   for(const t of e.changedTouches){
