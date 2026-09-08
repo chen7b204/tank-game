@@ -16,18 +16,18 @@ body{display:flex;justify-content:center;align-items:center;font-family:sans-ser
 #rotate-hint h2{font-size:32px;font-weight:bold;text-shadow:0 0 20px rgba(0,240,255,0.8);}
 #rotate-hint p{font-size:18px;color:#8fbc8f;line-height:1.8;}
 @keyframes rotphone{0%,20%{transform:rotate(0deg);}60%,100%{transform:rotate(90deg);}}
-/* 手机竖屏：隐藏游戏，提示横屏（JS 加 body.touch-portrait 类） */
-body.touch-portrait #game-wrap{display:none;}
-body.touch-portrait #rotate-hint{display:flex;}
-/* 手机横屏：旋转游戏容器铺满屏幕 */
-body.touch-landscape #game-wrap{
+/* 手机端：强制横屏——游戏画面始终旋转90度，不依赖系统自动旋转开关 */
+body.force-landscape #game-wrap{
   position:fixed;left:50%;top:50%;
   transform:translate(-50%,-50%) rotate(90deg);
-  width:100vh;height:100vw;
-  max-width:none;max-height:none;
-  border:none;border-radius:0;box-shadow:none;
+  border:none;border-radius:0;box-shadow:none;background:#050d05;
+  max-width:none;max-height:none;aspect-ratio:auto;
 }
-body.touch-landscape{background:#050d05;}
+/* 系统已是横屏：旋转后全屏铺满 */
+body.force-landscape.orient-landscape #game-wrap{width:100vh;height:100vw;}
+/* 系统竖屏（自动旋转被锁定）：旋转画面居中适配，上下留黑边 */
+body.force-landscape.orient-portrait #game-wrap{width:56.25vw;height:100vw;}
+body.force-landscape{background:#000;}
 </style>
 </head>
 <body>
@@ -99,21 +99,24 @@ window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 // Touch controls (mobile)
 const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 function updateOrientation(){
-  if(!isTouch){document.body.classList.remove('touch-portrait','touch-landscape');return;}
-  const landscape=window.innerWidth>window.innerHeight;
-  document.body.classList.toggle('touch-landscape',landscape);
-  document.body.classList.toggle('touch-portrait',!landscape);
+  document.body.classList.remove('force-landscape','orient-landscape','orient-portrait');
+  if(!isTouch)return;
+  document.body.classList.add('force-landscape');
+  document.body.classList.add(window.innerWidth>window.innerHeight?'orient-landscape':'orient-portrait');
 }
 window.addEventListener('resize',updateOrientation);
 window.addEventListener('orientationchange',function(){setTimeout(updateOrientation,150);});
 updateOrientation();
-const isRotated=()=>document.body.classList.contains('touch-landscape');
+const isRotated=()=>document.body.classList.contains('force-landscape');
 const joy={active:false,id:null,ox:0,oy:0,dx:0,dy:0};
 let fireTouchId=null,touchFiring=false;
 function toCanvas(t){
   if(isRotated()){
-    // 容器CSS旋转90度后的坐标映射
-    return{x:t.clientY*W/window.innerHeight,y:(window.innerWidth-t.clientX)*H/window.innerWidth};
+    // 容器被CSS旋转90度后，getBoundingClientRect返回旋转后的实际包围盒
+    const r=canvas.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    // 屏幕水平方向↔游戏Y轴，屏幕垂直方向↔游戏X轴
+    return{x:W/2+(t.clientY-cy)*W/r.height, y:H/2-(t.clientX-cx)*H/r.width};
   }
   const r=canvas.getBoundingClientRect();return{x:(t.clientX-r.left)*(W/r.width),y:(t.clientY-r.top)*(H/r.height)};
 }
