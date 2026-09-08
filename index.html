@@ -9,15 +9,20 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none;}
 body{display:flex;justify-content:center;align-items:center;font-family:sans-serif;background:radial-gradient(ellipse at center,#0d1a0d 0%,#050d05 70%,#000 100%);}
-#game-wrap{position:relative;width:min(100vh*9/16,100vw);height:min(100vh,100vw*16/9);aspect-ratio:9/16;max-width:720px;max-height:1280px;background:#050d05;border:2px solid var(--neon-cyan);border-radius:4px;box-shadow:0 0 30px rgba(0,240,255,0.3);overflow:hidden;}
+#game-wrap{position:relative;width:min(100vw,177.78vh);height:min(56.25vw,100vh);aspect-ratio:16/9;max-width:1280px;max-height:720px;background:#050d05;border:2px solid var(--neon-cyan);border-radius:4px;box-shadow:0 0 30px rgba(0,240,255,0.3);overflow:hidden;}
 #game{width:100%;height:100%;display:block;background:#0a140a;}
 #rotate-hint{display:none;position:fixed;inset:0;z-index:99;background:radial-gradient(ellipse at center,#0d1a0d 0%,#050d05 70%,#000 100%);flex-direction:column;align-items:center;justify-content:center;gap:30px;color:#00f0ff;text-align:center;touch-action:none;}
 #rotate-hint .phone-icon{font-size:90px;animation:rotphone 1.8s ease-in-out infinite;filter:drop-shadow(0 0 15px rgba(0,240,255,0.6));}
 #rotate-hint h2{font-size:32px;font-weight:bold;text-shadow:0 0 20px rgba(0,240,255,0.8);}
 #rotate-hint p{font-size:18px;color:#8fbc8f;line-height:1.8;}
 @keyframes rotphone{0%,20%{transform:rotate(0deg);}60%,100%{transform:rotate(90deg);}}
-/* 手机端：强制横屏——绕左上角旋转90度并补偿位移，任何系统方向下都铺满全屏 */
+/* 手机横握：横版游戏直接铺满 */
 body.force-landscape #game-wrap{
+  border:none;border-radius:0;box-shadow:none;
+  max-width:none;max-height:none;
+}
+/* 手机竖握（系统未旋转）：把横版游戏旋转90度适配竖屏 */
+body.force-landscape.orient-portrait #game-wrap{
   position:fixed;left:0;top:0;margin:0;
   width:100vh;height:100vw;
   transform:rotate(90deg) translateY(-100%);
@@ -30,7 +35,7 @@ body.force-landscape{background:#000;overflow:hidden;}
 </head>
 <body>
 <div id="game-wrap">
-  <canvas id="game" width="720" height="1280"></canvas>
+  <canvas id="game" width="1280" height="720"></canvas>
 </div>
 <div id="rotate-hint">
   <div class="phone-icon">📱</div>
@@ -43,7 +48,7 @@ body.force-landscape{background:#000;overflow:hidden;}
 const canvas=document.getElementById('game');
 const ctx=canvas.getContext('2d');
 ctx.imageSmoothingEnabled=false;
-const W=720,H=1280;
+const W=1280,H=720;
 const C={cyan:'#00f0ff',magenta:'#ff00d4',yellow:'#ffe600',red:'#ff2a4d',green:'#00ff9c',white:'#e0f7ff'};
 
 const assets={};
@@ -110,7 +115,7 @@ function updateOrientation(){
 window.addEventListener('resize',updateOrientation);
 window.addEventListener('orientationchange',function(){setTimeout(updateOrientation,150);});
 updateOrientation();
-const isRotated=()=>document.body.classList.contains('force-landscape');
+const isRotated=()=>document.body.classList.contains('force-landscape')&&document.body.classList.contains('orient-portrait');
 const joy={active:false,id:null,ox:0,oy:0,dx:0,dy:0};
 let fireTouchId=null,touchFiring=false;
 function toCanvas(t){
@@ -128,11 +133,11 @@ canvas.addEventListener('touchstart',e=>{
   for(const t of e.changedTouches){
     const p=toCanvas(t);
     if(state==='menu'){
-      const cardXs=[125,360,595];
+      const cardXs=[300,640,980];
       let chosen=-1;
-      for(let k=0;k<3;k++){if(p.x>cardXs[k]-100&&p.x<cardXs[k]+100&&p.y>310&&p.y<750)chosen=k;}
+      for(let k=0;k<3;k++){if(p.x>cardXs[k]-145&&p.x<cardXs[k]+145&&p.y>165&&p.y<545)chosen=k;}
       if(chosen>=0){if(selectedShip===chosen)startGame();else selectedShip=chosen;}
-      else if(p.y>800&&p.y<875&&p.x>W/2-150&&p.x<W/2+150)startGame();
+      else if(p.y>585&&p.y<657&&p.x>480&&p.x<800)startGame();
       return;
     }
     if(state==='gameover'||state==='victory'){startGame();return;}
@@ -169,7 +174,7 @@ function endTouch(e){
 canvas.addEventListener('touchend',endTouch,{passive:false});
 canvas.addEventListener('touchcancel',endTouch,{passive:false});
 
-const player={x:W/2,y:H-120,w:52,h:52,speed:5,angle:-Math.PI/2,hp:4,maxHp:4,fireCooldown:0,invincible:0,power:1,color:C.cyan,fireRate:0.35};
+const player={x:W/2,y:H-130,w:64,h:64,speed:5,angle:-Math.PI/2,hp:4,maxHp:4,fireCooldown:0,invincible:0,power:1,color:C.cyan,fireRate:0.35};
 // 可选战机：轻型(高速脆皮)、中型(均衡)、重型(厚甲双炮)
 const ships=[
   {name:'LIGHT',label:'轻型侦察',color:C.cyan,speed:6.5,hp:2,fireRate:0.25,startPower:1},
@@ -190,13 +195,13 @@ const levels=[
 function buildWalls(){
   walls=[];
   const lv=levels[level-1];
-  for(let i=0;i<lv.walls;i++){
-    const bw=60,bh=30;
-    const x=60+Math.random()*(W-120-bw);
-    const y=200+Math.random()*(H-500);
+  for(let i=0;i<lv.walls*2;i++){
+    const bw=70,bh=34;
+    const x=70+Math.random()*(W-140-bw);
+    const y=120+Math.random()*(H-300);
     let ok=true;
-    for(const w of walls){if(Math.abs(w.x+w.w/2-(x+bw/2))<bw+20&&Math.abs(w.y+w.h/2-(y+bh/2))<bh+20){ok=false;break;}}
-    if(Math.abs(x+bw/2-player.x)<100&&Math.abs(y+bh/2-player.y)<100)ok=false;
+    for(const w of walls){if(Math.abs(w.x+w.w/2-(x+bw/2))<bw+30&&Math.abs(w.y+w.h/2-(y+bh/2))<bh+20){ok=false;break;}}
+    if(Math.abs(x+bw/2-player.x)<140&&Math.abs(y+bh/2-player.y)<140)ok=false;
     if(ok)walls.push({x,y,w:bw,h:bh,hp:3,maxHp:3});
   }
 }
@@ -208,12 +213,12 @@ function spawnEnemy(){
   if(side===0){x=60+Math.random()*(W-120);y=60;}
   else if(side===1){x=60;y=80+Math.random()*(H*0.4);}
   else{x=W-60;y=80+Math.random()*(H*0.4);}
-  enemies.push({x,y,w:48,h:48,angle:Math.PI/2,hp:lv.enemyHp,maxHp:lv.enemyHp,speed:lv.enemySpeed,score:200,color:C.magenta,fireCooldown:1+Math.random()*2,moveTimer:0});
+  enemies.push({x,y,w:56,h:56,angle:Math.PI/2,hp:lv.enemyHp,maxHp:lv.enemyHp,speed:lv.enemySpeed,score:200,color:C.magenta,fireCooldown:1+Math.random()*2,moveTimer:0});
 }
 
 function spawnBoss(){
   const lv=levels[level-1];
-  enemies.push({type:'boss',bossType:lv.bossType,x:W/2,y:120,w:130,h:130,angle:Math.PI/2,hp:lv.bossHp,maxHp:lv.bossHp,speed:0.6,score:5000,color:C.red,fireCooldown:1,pattern:0,patternTimer:0});
+  enemies.push({type:'boss',bossType:lv.bossType,x:W/2,y:130,w:160,h:160,angle:Math.PI/2,hp:lv.bossHp,maxHp:lv.bossHp,speed:0.6,score:5000,color:C.red,fireCooldown:1,pattern:0,patternTimer:0});
 }
 
 function fireBullet(){
@@ -315,9 +320,9 @@ function update(dt){
     const moveDist=player.speed*dt*60;
     let nx=player.x+mx*moveDist,ny=player.y+my*moveDist;
     nx=Math.max(30,Math.min(W-30,nx));ny=Math.max(30,Math.min(H-30,ny));
-    if(!hitWall(nx,ny,24)){player.x=nx;player.y=ny;}
-    else if(!hitWall(player.x,ny,24)){player.y=ny;}
-    else if(!hitWall(nx,player.y,24)){player.x=nx;}
+    if(!hitWall(nx,ny,30)){player.x=nx;player.y=ny;}
+    else if(!hitWall(player.x,ny,30)){player.y=ny;}
+    else if(!hitWall(nx,player.y,30)){player.x=nx;}
   }
   player.fireCooldown-=dt;
   if((keys[' ']||keys['z']||touchFiring)&&player.fireCooldown<=0){fireBullet();player.fireCooldown=player.fireRate;}
@@ -359,7 +364,7 @@ function update(dt){
       const dist=Math.sqrt(dx*dx+dy*dy);
       if(dist>250){
         const nx=e.x+Math.cos(e.angle)*e.speed,ny=e.y+Math.sin(e.angle)*e.speed;
-        if(nx>70&&nx<W-70&&ny>70&&ny<H-70&&!hitWall(nx,ny,60)){e.x=nx;e.y=ny;}
+        if(nx>80&&nx<W-80&&ny>80&&ny<H-80&&!hitWall(nx,ny,70)){e.x=nx;e.y=ny;}
       }
       e.fireCooldown-=dt;
       if(e.fireCooldown<=0){bossFire(e);e.fireCooldown=1.0;}
@@ -367,11 +372,11 @@ function update(dt){
       const dist=Math.sqrt(dx*dx+dy*dy);
       if(dist>180){
         const nx=e.x+Math.cos(e.angle)*e.speed,ny=e.y+Math.sin(e.angle)*e.speed;
-        if(nx>40&&nx<W-40&&ny>40&&ny<H-40&&!hitWall(nx,ny,26)){e.x=nx;e.y=ny;}
+        if(nx>45&&nx<W-45&&ny>45&&ny<H-45&&!hitWall(nx,ny,28)){e.x=nx;e.y=ny;}
         else{e.angle+=1.5;}
       }
       e.fireCooldown-=dt;
-      if(e.fireCooldown<=0&&dist<420){enemyFire(e,targetAngle);e.fireCooldown=2.5+Math.random()*2;}
+      if(e.fireCooldown<=0&&dist<700){enemyFire(e,targetAngle);e.fireCooldown=2.5+Math.random()*2;}
       if(player.invincible<=0&&rectHit(player,e)){
         player.hp--;player.invincible=2;addParticle(e.x,e.y,e.color,15);
         e.hp-=2;if(e.hp<=0){enemies.splice(i,1);kills++;}
@@ -471,13 +476,13 @@ function drawLoading(){
 
 function drawMenu(){
   ctx.save();ctx.textAlign='center';
-  ctx.font='bold 52px sans-serif';ctx.fillStyle=C.green;ctx.shadowColor=C.green;ctx.shadowBlur=30;ctx.fillText('NEON',W/2,140);
-  ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.fillText('TANKS',W/2,200);
-  ctx.font='20px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('SELECT YOUR VEHICLE',W/2,270);
-  const cardXs=[125,360,595];
+  ctx.font='bold 46px sans-serif';ctx.fillStyle=C.green;ctx.shadowColor=C.green;ctx.shadowBlur=30;ctx.fillText('NEON',300,85);
+  ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.fillText('TANKS',300,135);
+  ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('SELECT YOUR VEHICLE',640,100);
+  const cardXs=[300,640,980];
   for(let k=0;k<3;k++){
     const s=ships[k],cx=cardXs[k],selected=k===selectedShip;
-    const cy=310,cw=200,ch=440;
+    const cy=165,cw=290,ch=380;
     ctx.save();
     ctx.fillStyle=selected?'rgba(0,255,156,0.12)':'rgba(255,255,255,0.04)';
     ctx.strokeStyle=s.color;ctx.lineWidth=selected?4:2;
@@ -486,34 +491,33 @@ function drawMenu(){
     if(ctx.roundRect){ctx.roundRect(cx-cw/2,cy,cw,ch,12);ctx.fill();ctx.stroke();}
     else{ctx.fillRect(cx-cw/2,cy,cw,ch);ctx.strokeRect(cx-cw/2,cy,cw,ch);}
     ctx.restore();
-    drawTank(cx,cy+80,-Math.PI/2,46,46,s.color,true);
+    drawTank(cx,cy+95,-Math.PI/2,60,60,s.color,true);
     ctx.save();ctx.textAlign='center';
-    ctx.font='bold 24px sans-serif';ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=10;
-    ctx.fillText(s.name,cx,cy+175);
-    ctx.font='18px sans-serif';ctx.fillStyle=C.white;ctx.shadowBlur=0;ctx.fillText(s.label,cx,cy+205);
-    ctx.font='16px sans-serif';ctx.fillStyle='#bbb';
-    ctx.fillText('HP:  '+'■'.repeat(s.hp)+'□'.repeat(6-s.hp),cx,cy+255);
-    ctx.fillText('SPD:  '+s.speed.toFixed(1),cx,cy+290);
-    ctx.fillText('RATE: '+(1/s.fireRate).toFixed(1)+' /s',cx,cy+325);
-    ctx.fillText('GUN:  '+(s.startPower===2?'DUAL':'SINGLE'),cx,cy+360);
+    ctx.font='bold 26px sans-serif';ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=10;
+    ctx.fillText(s.name,cx,cy+190);
+    ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowBlur=0;ctx.fillText(s.label,cx,cy+222);
+    ctx.font='17px sans-serif';ctx.fillStyle='#bbb';
+    ctx.fillText('HP:  '+'■'.repeat(s.hp)+'□'.repeat(6-s.hp),cx,cy+270);
+    ctx.fillText('SPD:  '+s.speed.toFixed(1),cx,cy+302);
+    ctx.fillText('RATE: '+(1/s.fireRate).toFixed(1)+' /s',cx,cy+334);
+    ctx.fillText('GUN:  '+(s.startPower===2?'DUAL':'SINGLE'),cx,cy+366);
     if(selected){
-      ctx.font='bold 16px sans-serif';ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=10;
-      ctx.fillText('▶ SELECTED ◀',cx,cy+410);
+      ctx.font='bold 17px sans-serif';ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=10;
+      ctx.fillText('▶ SELECTED ◀',cx,cy+ch-18);
     }
     ctx.restore();
   }
   ctx.save();
   ctx.fillStyle=C.green;ctx.shadowColor=C.green;ctx.shadowBlur=20;
   ctx.beginPath();
-  if(ctx.roundRect){ctx.roundRect(W/2-150,800,300,70,12);ctx.fill();}
-  else{ctx.fillRect(W/2-150,800,300,70);}
-  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
-  ctx.fillText('START',W/2,846);
+  if(ctx.roundRect){ctx.roundRect(640-160,585,320,72,12);ctx.fill();}
+  else{ctx.fillRect(640-160,585,320,72);}
+  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 30px sans-serif';ctx.textAlign='center';
+  ctx.fillText('START',640,633);
   ctx.restore();
   ctx.save();ctx.font='17px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;ctx.textAlign='center';
-  ctx.fillText(isTouch?'TAP A CARD TO SELECT · TAP START':'◀ ▶ / A D 选择 · ENTER 开始',W/2,920);
-  ctx.fillText('WASD: MOVE · SPACE: FIRE · P: PAUSE',W/2,960);
-  ctx.fillStyle=C.green;ctx.fillText('3 LEVELS + 3 BOSSES',W/2,1000);
+  ctx.fillText(isTouch?'TAP CARD 选择 · TAP START 开始':'◀ ▶ / A D 选择 · ENTER 开始',380,690);
+  ctx.fillText('WASD: MOVE · SPACE: FIRE · P: PAUSE',900,690);
   ctx.restore();
   ctx.restore();
 }
