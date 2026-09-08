@@ -117,7 +117,7 @@ function endTouch(e){
 canvas.addEventListener('touchend',endTouch,{passive:false});
 canvas.addEventListener('touchcancel',endTouch,{passive:false});
 
-const player={x:W/2,y:H-120,w:52,h:52,speed:3.5,angle:-Math.PI/2,hp:4,maxHp:4,fireCooldown:0,invincible:0,power:1};
+const player={x:W/2,y:H-120,w:52,h:52,speed:5,angle:-Math.PI/2,hp:4,maxHp:4,fireCooldown:0,invincible:0,power:1};
 let bullets=[],enemies=[],enemyBullets=[],particles=[],items=[],walls=[];
 let stars=[];
 for(let i=0;i<80;i++){stars.push({x:Math.random()*W,y:Math.random()*H,speed:0.3+Math.random()*1.5,size:Math.random()*2+0.5});}
@@ -243,8 +243,14 @@ function update(dt){
     let diff=target-player.angle;
     while(diff>Math.PI)diff-=Math.PI*2;
     while(diff<-Math.PI)diff+=Math.PI*2;
-    player.angle+=diff*0.25;
-    let nx=player.x+mx*player.speed,ny=player.y+my*player.speed;
+    // 快速转向：每秒最多转12弧度（约1.9圈），接近目标时直接对准
+    const turnStep=12*dt;
+    player.angle+=Math.abs(diff)<turnStep?diff:Math.sign(diff)*turnStep;
+    // 归一化移动方向（斜着走不会更快），摇杆轻推可慢速
+    const ml=Math.hypot(mx,my);
+    if(ml>1){mx/=ml;my/=ml;}
+    const moveDist=player.speed*dt*60;
+    let nx=player.x+mx*moveDist,ny=player.y+my*moveDist;
     nx=Math.max(30,Math.min(W-30,nx));ny=Math.max(30,Math.min(H-30,ny));
     if(!hitWall(nx,ny,24)){player.x=nx;player.y=ny;}
     else if(!hitWall(player.x,ny,24)){player.y=ny;}
