@@ -16,18 +16,16 @@ body{display:flex;justify-content:center;align-items:center;font-family:sans-ser
 #rotate-hint h2{font-size:32px;font-weight:bold;text-shadow:0 0 20px rgba(0,240,255,0.8);}
 #rotate-hint p{font-size:18px;color:#8fbc8f;line-height:1.8;}
 @keyframes rotphone{0%,20%{transform:rotate(0deg);}60%,100%{transform:rotate(90deg);}}
-/* 手机端：强制横屏——游戏画面始终旋转90度，不依赖系统自动旋转开关 */
+/* 手机端：强制横屏——绕左上角旋转90度并补偿位移，任何系统方向下都铺满全屏 */
 body.force-landscape #game-wrap{
-  position:fixed;left:50%;top:50%;
-  transform:translate(-50%,-50%) rotate(90deg);
+  position:fixed;left:0;top:0;margin:0;
+  width:100vh;height:100vw;
+  transform:rotate(90deg) translateY(-100%);
+  transform-origin:0 0;
   border:none;border-radius:0;box-shadow:none;background:#050d05;
   max-width:none;max-height:none;aspect-ratio:auto;
 }
-/* 系统已是横屏：旋转后全屏铺满 */
-body.force-landscape.orient-landscape #game-wrap{width:100vh;height:100vw;}
-/* 系统竖屏（自动旋转被锁定）：旋转画面居中适配，上下留黑边 */
-body.force-landscape.orient-portrait #game-wrap{width:56.25vw;height:100vw;}
-body.force-landscape{background:#000;}
+body.force-landscape{background:#000;overflow:hidden;}
 </style>
 </head>
 <body>
