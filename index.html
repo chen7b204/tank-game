@@ -164,9 +164,9 @@ let stars=[];
 for(let i=0;i<80;i++){stars.push({x:Math.random()*W,y:Math.random()*H,speed:0.3+Math.random()*1.5,size:Math.random()*2+0.5});}
 
 const levels=[
-  {name:'LEVEL 1',enemyHp:2,enemySpeed:1.2,enemyCount:8,bossHp:50,bossType:'boss1',walls:10},
-  {name:'LEVEL 2',enemyHp:4,enemySpeed:1.5,enemyCount:10,bossHp:75,bossType:'boss2',walls:14},
-  {name:'LEVEL 3',enemyHp:6,enemySpeed:1.8,enemyCount:12,bossHp:100,bossType:'boss3',walls:18}
+  {name:'LEVEL 1',enemyHp:1,enemySpeed:1.2,enemyCount:8,bossHp:50,bossType:'boss1',walls:10},
+  {name:'LEVEL 2',enemyHp:1,enemySpeed:1.5,enemyCount:10,bossHp:75,bossType:'boss2',walls:14},
+  {name:'LEVEL 3',enemyHp:1,enemySpeed:1.8,enemyCount:12,bossHp:100,bossType:'boss3',walls:18}
 ];
 
 function buildWalls(){
@@ -316,7 +316,7 @@ function update(dt){
           if(e.type==='boss'){
             if(level>=3){state='victory';stopBGM();}
             else{state='levelclear';}
-          }else{kills++;if(Math.random()<0.25){items.push({x:e.x,y:e.y,type:Math.random()<0.5?'power':'hp'});}}
+          }else{kills++;if(Math.random()<0.5){items.push({x:e.x,y:e.y,type:Math.random()<0.5?'power':'hp'});}}
           enemies.splice(j,1);
         }
         break;
