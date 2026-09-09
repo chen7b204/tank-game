@@ -452,7 +452,9 @@ function update(dt){
 }
 
 function drawTank(x,y,angle,w,h,color,isPlayer,skin){
-  const img=isPlayer?assets.player:assets.enemy;
+  // 熊大皮肤用player.png本体；其他皮肤用矢量坦克，避免熊大图和角色重叠
+  const usePlayerImg=isPlayer&&skin&&skin.name==='熊大';
+  const img=usePlayerImg?assets.player:(!isPlayer?assets.enemy:null);
   if(img&&img.complete&&img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=color;ctx.shadowBlur=12;
     ctx.drawImage(img,-w/2,-h/2,w,h);
@@ -475,8 +477,8 @@ function drawTank(x,y,angle,w,h,color,isPlayer,skin){
     ctx.fillStyle=C.white;ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
-  // 玩家角色立绘叠加在坦克上方
-  if(isPlayer&&skin&&skin.img&&skin.img.complete&&skin.img.naturalWidth>0){
+  // 玩家角色立绘叠加在坦克上方（熊大皮肤已用player.png本体，不再叠加）
+  if(isPlayer&&skin&&skin.name!=='熊大'&&skin.img&&skin.img.complete&&skin.img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);
     const si=skin.img, ratio=si.width/si.height;
     const dh=h*1.6, dw=dh*ratio;
