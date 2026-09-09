@@ -587,11 +587,13 @@ function update(dt){
 
 function drawTank(x,y,angle,w,h,color,isPlayer,skin){
   // 所有玩家坦克只用player.png贴图，放大1.4倍显示
+  // 皮肤通过光晕颜色区分
   const img=isPlayer?assets.player:assets.enemy;
   const scale=isPlayer?1.4:1.2;
   const dw=w*scale, dh=h*scale;
+  const glowColor=isPlayer&&skin?skin.color:color;
   if(img&&img.complete&&img.naturalWidth>0){
-    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=color;ctx.shadowBlur=12;
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=glowColor;ctx.shadowBlur=16;
     ctx.drawImage(img,-dw/2,-dh/2,dw,dh);
     ctx.shadowBlur=0;ctx.restore();
   }else{
