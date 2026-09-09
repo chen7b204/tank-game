@@ -586,12 +586,13 @@ function update(dt){
 }
 
 function drawTank(x,y,angle,w,h,color,isPlayer,skin){
-  // 熊大皮肤用player.png本体；其他皮肤用矢量坦克，避免熊大图和角色重叠
-  const usePlayerImg=isPlayer&&skin&&skin.name==='熊大';
-  const img=usePlayerImg?assets.player:(!isPlayer?assets.enemy:null);
+  // 所有玩家坦克只用player.png贴图，放大1.4倍显示
+  const img=isPlayer?assets.player:assets.enemy;
+  const scale=isPlayer?1.4:1.2;
+  const dw=w*scale, dh=h*scale;
   if(img&&img.complete&&img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=color;ctx.shadowBlur=12;
-    ctx.drawImage(img,-w/2,-h/2,w,h);
+    ctx.drawImage(img,-dw/2,-dh/2,dw,dh);
     ctx.shadowBlur=0;ctx.restore();
   }else{
     ctx.save();ctx.translate(x,y);ctx.rotate(angle);
@@ -611,23 +612,16 @@ function drawTank(x,y,angle,w,h,color,isPlayer,skin){
     ctx.fillStyle=C.white;ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
-  // 玩家角色立绘叠加在坦克上方（熊大皮肤已用player.png本体，不再叠加）
-  if(isPlayer&&skin&&skin.name!=='熊大'&&skin.img&&skin.img.complete&&skin.img.naturalWidth>0){
-    ctx.save();ctx.translate(x,y);
-    const si=skin.img, ratio=si.width/si.height;
-    const dh=h*1.6, dw=dh*ratio;
-    ctx.shadowColor=skin.color;ctx.shadowBlur=12;
-    ctx.drawImage(si,-dw/2,-dh/2-h*0.7,dw,dh);
-    ctx.shadowBlur=0;ctx.restore();
-  }
 }
 
 function drawBossTank(x,y,angle,w,h,bossType){
   const typeToImg={boss1:assets.boss1,boss2:assets.boss2,boss3:assets.boss3};
   const img=typeToImg[bossType]||assets.boss1;
+  const scale=1.2;
+  const dw=w*scale, dh=h*scale;
   if(img&&img.complete&&img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=C.red;ctx.shadowBlur=20;
-    ctx.drawImage(img,-w/2,-h/2,w,h);ctx.shadowBlur=0;ctx.restore();
+    ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.shadowBlur=0;ctx.restore();
   }else{
     drawTank(x,y,angle,w,h,C.red,false);
   }
