@@ -586,16 +586,14 @@ function update(dt){
 }
 
 function drawTank(x,y,angle,w,h,color,isPlayer,skin){
-  // 所有玩家坦克只用player.png贴图，放大1.4倍显示
-  // 皮肤通过光晕颜色区分
-  const img=isPlayer?assets.player:assets.enemy;
+  // 玩家坦克用对应皮肤的贴图，无光晕
+  const img=isPlayer?(skin&&skin.img?skin.img:assets.player):assets.enemy;
   const scale=isPlayer?1.4:1.2;
   const dw=w*scale, dh=h*scale;
-  const glowColor=isPlayer&&skin?skin.color:color;
   if(img&&img.complete&&img.naturalWidth>0){
-    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=glowColor;ctx.shadowBlur=16;
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);
     ctx.drawImage(img,-dw/2,-dh/2,dw,dh);
-    ctx.shadowBlur=0;ctx.restore();
+    ctx.restore();
   }else{
     ctx.save();ctx.translate(x,y);ctx.rotate(angle);
     // 履带
@@ -622,8 +620,8 @@ function drawBossTank(x,y,angle,w,h,bossType){
   const scale=1.2;
   const dw=w*scale, dh=h*scale;
   if(img&&img.complete&&img.naturalWidth>0){
-    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=C.red;ctx.shadowBlur=20;
-    ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.shadowBlur=0;ctx.restore();
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);
+    ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore();
   }else{
     drawTank(x,y,angle,w,h,C.red,false);
   }
