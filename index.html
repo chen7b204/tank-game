@@ -67,6 +67,10 @@ loadImg('enemy','assets/sprites/enemy.png');
 loadImg('boss1','assets/sprites/boss_1.png');
 loadImg('boss2','assets/sprites/boss_2.png');
 loadImg('boss3','assets/sprites/boss_3.png');
+loadImg('skin0','assets/sprites/skin_0.png');
+loadImg('skin1','assets/sprites/skin_1.png');
+loadImg('skin2','assets/sprites/skin_2.png');
+loadImg('skin3','assets/sprites/skin_3.png');
 
 const bgm=new Audio('assets/audio/bgm.mp3');
 bgm.loop=true;
@@ -143,10 +147,10 @@ canvas.addEventListener('touchstart',e=>{
       let chosen=-1;
       for(let k=0;k<3;k++){if(p.x>cardXs[k]-145&&p.x<cardXs[k]+145&&p.y>165&&p.y<545)chosen=k;}
       if(chosen>=0){if(selectedShip===chosen)startGame();else selectedShip=chosen;}
-      else if(p.y>=574&&p.y<=634){
-        // 皮肤圆点（优先判定）
-        const skinCxs=[535,605,675,740];
-        for(let i=0;i<skinCxs.length;i++){if(Math.abs(p.x-skinCxs[i])<32){selectedSkin=i;break;}}
+      else if(p.y>=576&&p.y<=654){
+        // 角色皮肤卡片（5款）
+        const skinCxs=[450,545,640,735,830];
+        for(let i=0;i<skinCxs.length;i++){if(Math.abs(p.x-skinCxs[i])<40){selectedSkin=i;break;}}
       }
       else if(p.y>=540&&p.y<=590){
         if(p.x>405&&p.x<625)difficulty='easy';
@@ -198,12 +202,13 @@ const ships=[
 ];
 let selectedShip=1;
 let selectedSkin=0;
-// 4种皮肤：主色、副色（装饰用）、风格
+// 5款角色皮肤：熊大(默认player图)、熊二、吉吉、毛毛、蹦蹦
 const skins=[
-  {name:'CLASSIC',main:null,acc:'#ffffff',style:'star'},   // 经典：跟随战机色，白色星标
-  {name:'CAMO',   main:C.green,acc:'#2d5016',style:'dots'}, // 丛林迷彩
-  {name:'GOLD',   main:'#ffb347',acc:'#ff4500',style:'stripe'},// 黄金涂装
-  {name:'NEON',   main:'#b14aff',acc:'#00f0ff',style:'ring'}  // 霓虹紫
+  {name:'熊大',img:assets.player,color:C.cyan},
+  {name:'熊二',img:assets.skin0,color:C.yellow},
+  {name:'吉吉',img:assets.skin1,color:C.green},
+  {name:'毛毛',img:assets.skin2,color:C.magenta},
+  {name:'蹦蹦',img:assets.skin3,color:'#ff8c42'}
 ];
 let difficulty='easy'; // easy=简单(Boss无第二形态) hard=困难(Boss双形态)
 let bullets=[],enemies=[],enemyBullets=[],particles=[],items=[],walls=[];
@@ -451,56 +456,33 @@ function drawTank(x,y,angle,w,h,color,isPlayer,skin){
   if(img&&img.complete&&img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=color;ctx.shadowBlur=12;
     ctx.drawImage(img,-w/2,-h/2,w,h);
-    if(isPlayer&&skin&&skin.style&&skin.style!=='star'){
-      ctx.globalAlpha=0.55;ctx.globalCompositeOperation='overlay';
-      ctx.drawImage(img,-w/2,-h/2,w,h);
-      ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
-    }
     ctx.shadowBlur=0;ctx.restore();
   }else{
-    const main=isPlayer&&skin&&skin.main?skin.main:color;
-    const acc=isPlayer&&skin?skin.acc:'#ffffff';
     ctx.save();ctx.translate(x,y);ctx.rotate(angle);
     // 履带
     ctx.fillStyle='#1a1a1a';
     ctx.fillRect(-w/2,-h/2+3,10,h-6);
     ctx.fillRect(w/2-10,-h/2+3,10,h-6);
     // 车身
-    ctx.fillStyle=main;ctx.shadowColor=main;ctx.shadowBlur=12;
+    ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;
     ctx.fillRect(-w/2+10,-h/2+7,w-20,h-14);
     ctx.shadowBlur=0;
     // 炮塔
     ctx.fillStyle='#0a0a0a';ctx.beginPath();ctx.arc(0,0,w/4.5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=main;ctx.shadowColor=main;ctx.shadowBlur=8;
+    ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8;
     ctx.fillRect(0,-4,w/2+12,8);
     ctx.shadowBlur=0;
-    // 皮肤装饰
-    if(isPlayer&&skin){
-      if(skin.style==='dots'){
-        ctx.fillStyle=skin.acc;ctx.globalAlpha=0.7;
-        for(let r=-2;r<=2;r++)for(let c=-2;c<=2;c++){
-          ctx.beginPath();ctx.arc(r*10,c*9,2.2,0,Math.PI*2);ctx.fill();
-        }
-        ctx.globalAlpha=1;
-      }else if(skin.style==='stripe'){
-        ctx.fillStyle=skin.acc;ctx.globalAlpha=0.8;
-        for(let s=-2;s<=2;s++){ctx.save();ctx.translate(0,s*11);ctx.fillRect(-w/2+11,0,w-22,5);ctx.restore();}
-        ctx.globalAlpha=1;
-      }else if(skin.style==='ring'){
-        ctx.strokeStyle=skin.acc;ctx.lineWidth=3;ctx.globalAlpha=0.9;
-        ctx.beginPath();ctx.arc(0,0,w/4.5+5,0,Math.PI*2);ctx.stroke();
-        ctx.beginPath();ctx.arc(0,0,w/4.5+12,0,Math.PI*2);ctx.stroke();
-        ctx.globalAlpha=1;
-      }else if(skin.style==='star'){
-        ctx.fillStyle=skin.acc;
-        const sx=w/4+8;
-        ctx.beginPath();
-        for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5;ctx.lineTo(Math.cos(a)*sx,Math.sin(a)*sx);const a2=a+Math.PI/5;ctx.lineTo(Math.cos(a2)*sx*0.45,Math.sin(a2)*sx*0.45);}
-        ctx.closePath();ctx.fill();
-      }
-    }
     ctx.fillStyle=C.white;ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
     ctx.restore();
+  }
+  // 玩家角色立绘叠加在坦克上方
+  if(isPlayer&&skin&&skin.img&&skin.img.complete&&skin.img.naturalWidth>0){
+    ctx.save();ctx.translate(x,y);
+    const si=skin.img, ratio=si.width/si.height;
+    const dh=h*1.6, dw=dh*ratio;
+    ctx.shadowColor=skin.color;ctx.shadowBlur=12;
+    ctx.drawImage(si,-dw/2,-dh/2-h*0.7,dw,dh);
+    ctx.shadowBlur=0;ctx.restore();
   }
 }
 
@@ -548,7 +530,7 @@ function drawHUD(){
 }
 
 function drawLoading(){
-  ctx.save();ctx.textAlign='center';ctx.font='bold 40px sans-serif';ctx.fillStyle=C.cyan;ctx.shadowColor=C.cyan;ctx.shadowBlur=20;ctx.fillText('LOADING...',W/2,H/2);ctx.font='20px sans-serif';ctx.fillStyle=C.white;ctx.shadowBlur=5;ctx.fillText(imgsLoaded+'/5 ASSETS LOADED',W/2,H/2+40);ctx.restore();
+  ctx.save();ctx.textAlign='center';ctx.font='bold 40px sans-serif';ctx.fillStyle=C.cyan;ctx.shadowColor=C.cyan;ctx.shadowBlur=20;ctx.fillText('LOADING...',W/2,H/2);ctx.font='20px sans-serif';ctx.fillStyle=C.white;ctx.shadowBlur=5;ctx.fillText(imgsLoaded+'/9 ASSETS LOADED',W/2,H/2+40);ctx.restore();
 }
 
 function drawMenu(){
@@ -604,22 +586,36 @@ function drawMenu(){
   ctx.restore();
   // 皮肤选择：4款
   ctx.save();
-  const skinCx=640,skinY=604,skinGap=70,skinR=18;
+  // 角色皮肤预览卡片（5款）
+  const skinCx=640,skinY=615,skinGap=95,skinW=78,skinH=78;
   const skinStart=skinCx-(skins.length-1)*skinGap/2;
   for(let i=0;i<skins.length;i++){
     const cx=skinStart+i*skinGap;
     const on=selectedSkin===i;
-    const col=skins[i].main||ships[selectedShip].color;
-    ctx.beginPath();ctx.arc(cx,skinY,skinR+(on?4:0),0,Math.PI*2);
-    ctx.fillStyle=on?col:'rgba(255,255,255,0.08)';
-    ctx.strokeStyle=col;ctx.lineWidth=on?3:2;ctx.shadowColor=col;ctx.shadowBlur=on?14:4;
-    ctx.fill();ctx.stroke();
+    const col=skins[i].color;
+    // 卡片背景
+    ctx.fillStyle=on?'rgba(0,240,255,0.15)':'rgba(255,255,255,0.04)';
+    ctx.strokeStyle=col;ctx.lineWidth=on?3:2;
+    ctx.shadowColor=col;ctx.shadowBlur=on?16:4;
+    ctx.beginPath();
+    if(ctx.roundRect){ctx.roundRect(cx-skinW/2,skinY-skinH/2,skinW,skinH,8);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(cx-skinW/2,skinY-skinH/2,skinW,skinH);ctx.strokeRect(cx-skinW/2,skinY-skinH/2,skinW,skinH);}
     ctx.shadowBlur=0;
-    // 装饰预览小点
-    ctx.fillStyle=skins[i].acc;ctx.beginPath();ctx.arc(cx,skinY,5,0,Math.PI*2);ctx.fill();
+    // 角色预览图
+    const si=skins[i].img;
+    if(si&&si.complete&&si.naturalWidth>0){
+      const ratio=si.width/si.height;
+      const ph=52, pw=ph*ratio;
+      ctx.drawImage(si,cx-pw/2,skinY-ph/2,pw,ph);
+    }else{
+      ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=10;
+      ctx.beginPath();ctx.arc(cx,skinY,20,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    }
+    // 名字
+    ctx.font='bold 12px sans-serif';ctx.fillStyle=on?col:'rgba(224,247,255,0.8)';
+    ctx.shadowColor=on?col:'transparent';ctx.shadowBlur=on?6:0;ctx.textAlign='center';
+    ctx.fillText(skins[i].name,cx,skinY+skinH/2+16);
   }
-  ctx.fillStyle=C.white;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.shadowBlur=0;
-  ctx.fillText(skins[selectedSkin].name+' SKIN',skinCx,skinY+38);
   ctx.restore();
   ctx.save();
   ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=20;
@@ -630,7 +626,7 @@ function drawMenu(){
   ctx.fillText('START',640,692);
   ctx.restore();
   ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;ctx.textAlign='center';
-  ctx.fillText(isTouch?'点卡片选车 · 点圆点换皮肤':'◀▶ 选车 · Q/E 换皮肤 · 1简单 2困难 · ENTER 开始',380,716);
+  ctx.fillText(isTouch?'点卡片选车 · 点角色换皮肤':'◀▶ 选车 · Q/E 换皮肤 · 1简单 2困难 · ENTER 开始',380,716);
   ctx.fillText('WASD MOVE · SPACE FIRE · P PAUSE',900,716);
   ctx.restore();
   ctx.restore();
@@ -689,7 +685,7 @@ function render(){
   for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
   for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   for(const s of stars){ctx.fillStyle='rgba(255,255,255,'+(0.3+s.speed/4)+')';ctx.fillRect(s.x,s.y,s.size,s.size);}
-  if(state==='loading'){drawLoading();if(imgsLoaded>=5)state='menu';return;}
+  if(state==='loading'){drawLoading();if(imgsLoaded>=9)state='menu';return;}
   if(state==='menu'){drawMenu();return;}
   if(state==='levelclear'){drawLevelClear();return;}
   if(state==='victory'){drawVictory();return;}
