@@ -91,6 +91,17 @@ function resumeBGM(){if(bgmStarted)bgm.play().catch(()=>{});}
 
 let state='loading',score=0,gameTime=0,lastTime=0;
 let level=1,kills=0,bossSpawned=false,bossBanner=0;
+// 技能卡系统：4个技能，购买后本关生效
+const skillDefs=[
+  {id:'bigBullet',name:'巨型炮弹',desc:'随机发射大号高伤子弹',cost:500},
+  {id:'allyTank', name:'友军支援',desc:'每击败3辆敌人召唤友方坦克',cost:800},
+  {id:'newEnemyShield',name:'先手护盾',desc:'新敌人出现时无敌3秒',cost:600},
+  {id:'bulletStorm',name:'弹幕风暴',desc:'随机向四周发射一群子弹',cost:700}
+];
+let skills={bigBullet:false,allyTank:false,newEnemyShield:false,bulletStorm:false};
+let skillTimers={bigBullet:0,bulletStorm:0};
+let killCountForAlly=0;
+let allies=[]; // 友方坦克
 const keys={};
 
 window.addEventListener('keydown',e=>{
@@ -111,6 +122,13 @@ window.addEventListener('keydown',e=>{
   if(state==='victory'&&(e.key==='Enter'||e.key===' '))startGame();
   if(state==='playing'&&e.key.toLowerCase()==='p'){state='paused';pauseBGM();}
   else if(state==='paused'&&e.key.toLowerCase()==='p'){state='playing';resumeBGM();}
+  if(state==='playing'){
+    const kn=e.key;
+    if(kn==='1')buySkill(0);
+    if(kn==='2')buySkill(1);
+    if(kn==='3')buySkill(2);
+    if(kn==='4')buySkill(3);
+  }
 });
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
@@ -167,6 +185,12 @@ canvas.addEventListener('touchstart',e=>{
       continue;
     }
     if(state!=='playing')continue;
+    // 技能卡点击区域（左下角4个卡片）
+    if(p.y>250&&p.y<400&&p.x<250){
+      const slot=Math.floor(p.x/62);
+      if(slot>=0&&slot<4)buySkill(slot);
+      continue;
+    }
     if(p.x<W/2&&!joy.active){joy.active=true;joy.id=t.identifier;joy.ox=p.x;joy.oy=p.y;joy.dx=0;joy.dy=0;}
     else if(p.x>=W/2&&fireTouchId===null){fireTouchId=t.identifier;touchFiring=true;}
   }
@@ -218,7 +242,8 @@ for(let i=0;i<80;i++){stars.push({x:Math.random()*W,y:Math.random()*H,speed:0.3+
 const levels=[
   {name:'LEVEL 1',enemyHp:1,enemySpeed:1.2,enemyCount:8,bossHp:50,bossType:'boss1',walls:10},
   {name:'LEVEL 2',enemyHp:1,enemySpeed:1.5,enemyCount:10,bossHp:75,bossType:'boss2',walls:14},
-  {name:'LEVEL 3',enemyHp:1,enemySpeed:1.8,enemyCount:12,bossHp:100,bossType:'boss3',walls:18}
+  {name:'LEVEL 3',enemyHp:1,enemySpeed:1.8,enemyCount:12,bossHp:100,bossType:'boss3',walls:18},
+  {name:'LEVEL 4',enemyHp:2,enemySpeed:2.0,enemyCount:16,bossHp:120,bossType:'boss1',walls:12,morphBoss:true,multiSpawn:true}
 ];
 
 function buildWalls(){
@@ -243,11 +268,61 @@ function spawnEnemy(){
   else if(side===1){x=60;y=80+Math.random()*(H*0.4);}
   else{x=W-60;y=80+Math.random()*(H*0.4);}
   enemies.push({x,y,w:56,h:56,angle:Math.PI/2,hp:lv.enemyHp,maxHp:lv.enemyHp,speed:lv.enemySpeed,score:200,color:C.magenta,fireCooldown:1+Math.random()*2,moveTimer:0});
+  // 技能3：新敌人出现时玩家无敌3秒
+  if(skills.newEnemyShield){player.invincible=Math.max(player.invincible,3);}
 }
 
 function spawnBoss(){
   const lv=levels[level-1];
-  enemies.push({type:'boss',bossType:lv.bossType,x:W/2,y:130,w:160,h:160,angle:Math.PI/2,hp:lv.bossHp,maxHp:lv.bossHp,speed:0.6,score:5000,color:C.red,fireCooldown:1,pattern:0,patternTimer:0,phase:1,phase2:difficulty==='hard'});
+  enemies.push({type:'boss',bossType:lv.bossType,x:W/2,y:130,w:160,h:160,angle:Math.PI/2,hp:lv.bossHp,maxHp:lv.bossHp,speed:0.6,score:5000,color:C.red,fireCooldown:1,pattern:0,patternTimer:0,phase:1,phase2:difficulty==='hard',morph:lv.morphBoss?true:false,morphTimer:0,morphInvincible:0});
+}
+
+// 第四关Boss变换：在boss1/2/3间切换，变换时无敌
+function morphBossType(boss){
+  const types=['boss1','boss2','boss3'];
+  let nt;
+  do{nt=types[Math.floor(Math.random()*3)];}while(nt===boss.bossType);
+  boss.bossType=nt;
+  boss.morphInvincible=2.5; // 变换期间无敌2.5秒
+  boss.w=160;boss.h=160;
+  addParticle(boss.x,boss.y,C.yellow,30);
+  addParticle(boss.x,boss.y,C.red,20);
+  bossBanner=1.5;
+}
+
+// 友方坦克：自动行进攻击敌人
+function spawnAlly(){
+  allies.push({x:W/2,y:H-80,w:50,h:50,angle:-Math.PI/2,hp:4,maxHp:4,speed:3.5,fireCooldown:0,color:C.green});
+  addParticle(W/2,H-80,C.green,15);
+}
+
+// 技能1：随机刷出大号子弹
+function spawnBigBullet(){
+  if(enemies.length===0)return;
+  const target=enemies[Math.floor(Math.random()*enemies.length)];
+  const dx=target.x-player.x,dy=target.y-player.y;
+  const d=Math.sqrt(dx*dx+dy*dy)||1;
+  bullets.push({x:player.x,y:player.y,vx:dx/d*6,vy:dy/d*6,dmg:5,w:22,h:22,color:C.yellow,big:true});
+}
+
+// 技能4：随机向四周发射一群子弹
+function spawnBulletStorm(){
+  const n=12;
+  for(let i=0;i<n;i++){
+    const a=(i/n)*Math.PI*2+Math.random()*0.3;
+    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:2,w:8,h:8,color:C.magenta});
+  }
+  addParticle(player.x,player.y,C.magenta,20);
+}
+
+// 购买技能卡（按得分购买，本关生效）
+function buySkill(idx){
+  const def=skillDefs[idx];
+  if(!def||skills[def.id])return;
+  if(score<def.cost)return;
+  score-=def.cost;
+  skills[def.id]=true;
+  addParticle(player.x,player.y,C.cyan,15);
 }
 
 function fireBullet(){
@@ -308,6 +383,10 @@ function startGame(){
   player.fireRate=s.fireRate;player.power=s.startPower;player.color=s.color;
   player.invincible=0;player.fireCooldown=0;
   bullets=[];enemies=[];enemyBullets=[];particles=[];items=[];
+  allies=[];
+  skills={bigBullet:false,allyTank:false,newEnemyShield:false,bulletStorm:false};
+  skillTimers={bigBullet:0,bulletStorm:0};
+  killCountForAlly=0;
   kills=0;bossSpawned=false;bossBanner=0;
   buildWalls();
   startBGM();
@@ -315,10 +394,14 @@ function startGame(){
 
 function nextLevel(){
   level++;
-  if(level>3){state='victory';return;}
+  if(level>4){state='victory';return;}
   state='playing';
   player.hp=Math.min(player.maxHp,player.hp+1);
   bullets=[];enemies=[];enemyBullets=[];particles=[];items=[];
+  allies=[];
+  skills={bigBullet:false,allyTank:false,newEnemyShield:false,bulletStorm:false};
+  skillTimers={bigBullet:0,bulletStorm:0};
+  killCountForAlly=0;
   kills=0;bossSpawned=false;
   buildWalls();
 }
@@ -332,7 +415,15 @@ function update(dt){
 
   if(!bossSpawned&&enemies.length===0){
     if(kills>=lv.enemyCount){bossSpawned=true;spawnBoss();}
-    else if(enemies.length<3){spawnEnemy();}
+    else if(lv.multiSpawn){
+      // 第四关：敌人同时出现（一次刷3辆）
+      for(let i=0;i<3;i++)spawnEnemy();
+    }else if(enemies.length<3){spawnEnemy();}
+  }
+
+  // 技能3：新敌人出现时玩家无敌3秒
+  if(skills.newEnemyShield){
+    // 在spawnEnemy里已设置，这里持续递减
   }
 
   let mx=0,my=0;
@@ -372,13 +463,22 @@ function update(dt){
     for(let j=enemies.length-1;j>=0;j--){
       const e=enemies[j];
       if(rectHit(b,e)){
+        // Boss变换期间无敌
+        if(e.type==='boss'&&e.morphInvincible>0){
+          addParticle(b.x,b.y,C.yellow,3);hit=true;break;
+        }
         e.hp-=b.dmg;addParticle(b.x,b.y,C.cyan,4);hit=true;
         if(e.hp<=0){
           score+=e.score;addParticle(e.x,e.y,e.color,18);addParticle(e.x,e.y,C.white,8);
           if(e.type==='boss'){
-            if(level>=3){state='victory';stopBGM();}
+            if(level>=4){state='victory';stopBGM();}
             else{state='levelclear';}
-          }else{kills++;if(Math.random()<0.5){items.push({x:e.x,y:e.y,type:Math.random()<0.5?'power':'hp'});}}
+          }else{
+            kills++;
+            // 技能2：每击败3辆敌人召唤友方坦克
+            if(skills.allyTank){killCountForAlly++;if(killCountForAlly>=3){killCountForAlly=0;spawnAlly();}}
+            if(Math.random()<0.5){items.push({x:e.x,y:e.y,type:Math.random()<0.5?'power':'hp'});}
+          }
           enemies.splice(j,1);
         }
         break;
@@ -396,6 +496,12 @@ function update(dt){
     while(diff<-Math.PI)diff+=Math.PI*2;
     e.angle+=diff*0.03;
     if(e.type==='boss'){
+      // 第四关Boss变换：定期在boss1/2/3间切换
+      if(e.morph){
+        e.morphTimer+=dt;
+        if(e.morphInvincible>0)e.morphInvincible-=dt;
+        if(e.morphTimer>8){e.morphTimer=0;morphBossType(e);}
+      }
       // 二阶段变身：Boss2/Boss3 血量低于一半时触发
       if(e.phase2&&e.phase===1&&e.hp<=e.maxHp/2){
         e.phase=2;e.speed=1.0;e.w=180;e.h=180;
@@ -425,6 +531,34 @@ function update(dt){
         if(player.hp<=0){state='gameover';stopBGM();}
       }
     }
+  }
+
+  // 技能计时器：巨型炮弹（每5秒）、弹幕风暴（每8秒）
+  if(skills.bigBullet){skillTimers.bigBullet+=dt;if(skillTimers.bigBullet>=5){skillTimers.bigBullet=0;spawnBigBullet();}}
+  if(skills.bulletStorm){skillTimers.bulletStorm+=dt;if(skillTimers.bulletStorm>=8){skillTimers.bulletStorm=0;spawnBulletStorm();}}
+
+  // 友方坦克更新
+  for(let i=allies.length-1;i>=0;i--){
+    const a=allies[i];
+    // 找最近敌人
+    let nearest=null,nd=Infinity;
+    for(const e of enemies){const d=(e.x-a.x)**2+(e.y-a.y)**2;if(d<nd){nd=d;nearest=e;}}
+    if(nearest){
+      const ta=Math.atan2(nearest.y-a.y,nearest.x-a.x);
+      let diff=ta-a.angle;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
+      a.angle+=diff*0.08;
+      const d=Math.sqrt(nd);
+      if(d>200){const nx=a.x+Math.cos(a.angle)*a.speed,ny=a.y+Math.sin(a.angle)*a.speed;
+        if(nx>30&&nx<W-30&&ny>30&&ny<H-30&&!hitWall(nx,ny,25)){a.x=nx;a.y=ny;}}
+      a.fireCooldown-=dt;
+      if(a.fireCooldown<=0&&d<600){
+        bullets.push({x:a.x+Math.cos(a.angle)*25,y:a.y+Math.sin(a.angle)*25,vx:Math.cos(a.angle)*8,vy:Math.sin(a.angle)*8,dmg:1,w:8,h:8,color:C.green});
+        a.fireCooldown=0.4;
+      }
+    }
+    // 友方坦克被敌人撞击掉血
+    for(const e of enemies){if(rectHit(a,e)){a.hp-=0.05;}}
+    if(a.hp<=0){addParticle(a.x,a.y,C.green,15);allies.splice(i,1);}
   }
 
   for(let i=enemyBullets.length-1;i>=0;i--){
@@ -528,6 +662,44 @@ function drawHUD(){
   ctx.fillStyle=difficulty==='hard'?C.red:C.green;
   ctx.shadowColor=difficulty==='hard'?C.red:C.green;ctx.shadowBlur=8;
   ctx.fillText(difficulty==='hard'?'HARD MODE':'EASY MODE',W-20,130);
+  ctx.restore();
+}
+
+// 技能卡 UI（左下角，4个卡片）
+function drawSkillCards(){
+  ctx.save();
+  const cw=58,ch=130,cx0=12,cy0=252;
+  for(let i=0;i<skillDefs.length;i++){
+    const def=skillDefs[i];
+    const x=cx0+i*62,y=cy0;
+    const owned=skills[def.id];
+    const canAfford=score>=def.cost;
+    ctx.fillStyle=owned?'rgba(0,255,156,0.2)':(canAfford?'rgba(0,240,255,0.1)':'rgba(100,100,100,0.15)');
+    ctx.strokeStyle=owned?C.green:(canAfford?C.cyan:'#555');
+    ctx.lineWidth=owned?2:1.5;
+    ctx.shadowColor=owned?C.green:(canAfford?C.cyan:'transparent');
+    ctx.shadowBlur=owned?8:(canAfford?6:0);
+    ctx.beginPath();
+    if(ctx.roundRect){ctx.roundRect(x,y,cw,ch,6);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(x,y,cw,ch);ctx.strokeRect(x,y,cw,ch);}
+    ctx.shadowBlur=0;
+    // 编号
+    ctx.fillStyle=owned?C.green:(canAfford?C.cyan:'#888');
+    ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('['+(i+1)+']',x+cw/2,y+18);
+    // 名称
+    ctx.fillStyle=owned?C.green:C.white;
+    ctx.font='bold 12px sans-serif';
+    ctx.fillText(def.name,x+cw/2,y+40);
+    // 描述
+    ctx.fillStyle='#bbb';ctx.font='10px sans-serif';
+    const words=def.desc.match(/.{1,6}/g)||[def.desc];
+    for(let w=0;w<Math.min(words.length,3);w++){ctx.fillText(words[w],x+cw/2,y+58+w*12);}
+    // 价格
+    ctx.fillStyle=owned?C.green:(canAfford?C.yellow:'#888');
+    ctx.font='bold 13px sans-serif';
+    ctx.fillText(owned?'已激活':def.cost+'分',x+cw/2,y+ch-12);
+  }
   ctx.restore();
 }
 
@@ -708,6 +880,13 @@ function render(){
 
   for(const e of enemies){
     if(e.type==='boss'){
+      // 变换无敌期：金色护盾闪烁
+      if(e.morphInvincible>0){
+        ctx.save();ctx.strokeStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=25;ctx.lineWidth=6;
+        ctx.globalAlpha=0.5+Math.sin(gameTime*15)*0.3;
+        ctx.beginPath();ctx.arc(e.x,e.y,e.w/2+15,0,Math.PI*2);ctx.stroke();
+        ctx.restore();
+      }
       if(e.phase===2){
         const pulse=e.w/2+Math.sin(gameTime*8)*10;
         ctx.save();ctx.strokeStyle=C.magenta;ctx.shadowColor=C.magenta;ctx.shadowBlur=25;ctx.lineWidth=5;
@@ -722,14 +901,28 @@ function render(){
     }
   }
   for(const it of items)drawItem(it);
+  // 友方坦克
+  for(const a of allies){
+    drawTank(a.x,a.y,a.angle,a.w,a.h,a.color,false);
+    const bw=(a.hp/a.maxHp)*a.w;
+    ctx.fillStyle='#333';ctx.fillRect(a.x-a.w/2,a.y-a.h/2-10,a.w,3);
+    ctx.fillStyle=C.green;ctx.fillRect(a.x-a.w/2,a.y-a.h/2-10,bw,3);
+  }
   if(player.invincible<=0||Math.floor(player.invincible*10)%2===0){drawTank(player.x,player.y,player.angle,player.w,player.h,player.color,true,skins[selectedSkin]);}
   for(const p of particles){ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);ctx.restore();}
-  if(state==='playing'||state==='paused')drawHUD();
+  if(state==='playing'||state==='paused'){drawHUD();drawSkillCards();}
   if(bossBanner>0&&state==='playing'){
+    const morphBoss=enemies.find(e=>e.type==='boss'&&e.morphInvincible>0);
     ctx.save();ctx.textAlign='center';
-    ctx.font='bold 52px sans-serif';ctx.fillStyle=C.yellow;ctx.shadowColor=C.red;ctx.shadowBlur=30;
-    ctx.fillText('⚠ WARNING ⚠',W/2,H/2-20);
-    ctx.font='bold 30px sans-serif';ctx.fillStyle=C.red;ctx.fillText('BOSS PHASE 2',W/2,H/2+35);
+    if(morphBoss){
+      ctx.font='bold 52px sans-serif';ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=30;
+      ctx.fillText('⚡ MORPHING ⚡',W/2,H/2-20);
+      ctx.font='bold 28px sans-serif';ctx.fillStyle=C.yellow;ctx.fillText('BOSS 无敌中，稍候再攻！',W/2,H/2+30);
+    }else{
+      ctx.font='bold 52px sans-serif';ctx.fillStyle=C.yellow;ctx.shadowColor=C.red;ctx.shadowBlur=30;
+      ctx.fillText('⚠ WARNING ⚠',W/2,H/2-20);
+      ctx.font='bold 30px sans-serif';ctx.fillStyle=C.red;ctx.fillText('BOSS PHASE 2',W/2,H/2+35);
+    }
     ctx.restore();
   }
   if(state==='paused')drawPause();
