@@ -96,6 +96,8 @@ window.addEventListener('keydown',e=>{
     const k=e.key.toLowerCase();
     if(k==='arrowleft'||k==='a')selectedShip=(selectedShip+2)%3;
     if(k==='arrowright'||k==='d')selectedShip=(selectedShip+1)%3;
+    if(k==='q')selectedSkin=(selectedSkin+skins.length-1)%skins.length;
+    if(k==='e')selectedSkin=(selectedSkin+1)%skins.length;
     if(k==='1')difficulty='easy';
     if(k==='2')difficulty='hard';
     if(k==='enter'||k===' ')startGame();
@@ -141,11 +143,16 @@ canvas.addEventListener('touchstart',e=>{
       let chosen=-1;
       for(let k=0;k<3;k++){if(p.x>cardXs[k]-145&&p.x<cardXs[k]+145&&p.y>165&&p.y<545)chosen=k;}
       if(chosen>=0){if(selectedShip===chosen)startGame();else selectedShip=chosen;}
-      else if(p.y>558&&p.y<612){
+      else if(p.y>=574&&p.y<=634){
+        // 皮肤圆点（优先判定）
+        const skinCxs=[535,605,675,740];
+        for(let i=0;i<skinCxs.length;i++){if(Math.abs(p.x-skinCxs[i])<32){selectedSkin=i;break;}}
+      }
+      else if(p.y>=540&&p.y<=590){
         if(p.x>405&&p.x<625)difficulty='easy';
         else if(p.x>655&&p.x<875)difficulty='hard';
       }
-      else if(p.y>632&&p.y<692&&p.x>500&&p.x<780)startGame();
+      else if(p.y>=660&&p.y<=708&&p.x>510&&p.x<770)startGame();
       return;
     }
     if(state==='gameover'||state==='victory'){startGame();return;}
@@ -190,6 +197,14 @@ const ships=[
   {name:'HEAVY',label:'重型炮车',color:C.yellow,speed:3.6,hp:6,fireRate:0.5,startPower:2}
 ];
 let selectedShip=1;
+let selectedSkin=0;
+// 4种皮肤：主色、副色（装饰用）、风格
+const skins=[
+  {name:'CLASSIC',main:null,acc:'#ffffff',style:'star'},   // 经典：跟随战机色，白色星标
+  {name:'CAMO',   main:C.green,acc:'#2d5016',style:'dots'}, // 丛林迷彩
+  {name:'GOLD',   main:'#ffb347',acc:'#ff4500',style:'stripe'},// 黄金涂装
+  {name:'NEON',   main:'#b14aff',acc:'#00f0ff',style:'ring'}  // 霓虹紫
+];
 let difficulty='easy'; // easy=简单(Boss无第二形态) hard=困难(Boss双形态)
 let bullets=[],enemies=[],enemyBullets=[],particles=[],items=[],walls=[];
 let stars=[];
@@ -431,23 +446,59 @@ function update(dt){
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=0.95;p.vy*=0.95;p.life-=dt*2;if(p.life<=0)particles.splice(i,1);}
 }
 
-function drawTank(x,y,angle,w,h,color,isPlayer){
+function drawTank(x,y,angle,w,h,color,isPlayer,skin){
   const img=isPlayer?assets.player:assets.enemy;
   if(img&&img.complete&&img.naturalWidth>0){
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.shadowColor=color;ctx.shadowBlur=12;
-    ctx.drawImage(img,-w/2,-h/2,w,h);ctx.shadowBlur=0;ctx.restore();
+    ctx.drawImage(img,-w/2,-h/2,w,h);
+    if(isPlayer&&skin&&skin.style&&skin.style!=='star'){
+      ctx.globalAlpha=0.55;ctx.globalCompositeOperation='overlay';
+      ctx.drawImage(img,-w/2,-h/2,w,h);
+      ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+    }
+    ctx.shadowBlur=0;ctx.restore();
   }else{
+    const main=isPlayer&&skin&&skin.main?skin.main:color;
+    const acc=isPlayer&&skin?skin.acc:'#ffffff';
     ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+    // 履带
     ctx.fillStyle='#1a1a1a';
     ctx.fillRect(-w/2,-h/2+3,10,h-6);
     ctx.fillRect(w/2-10,-h/2+3,10,h-6);
-    ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;
+    // 车身
+    ctx.fillStyle=main;ctx.shadowColor=main;ctx.shadowBlur=12;
     ctx.fillRect(-w/2+10,-h/2+7,w-20,h-14);
     ctx.shadowBlur=0;
+    // 炮塔
     ctx.fillStyle='#0a0a0a';ctx.beginPath();ctx.arc(0,0,w/4.5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8;
+    ctx.fillStyle=main;ctx.shadowColor=main;ctx.shadowBlur=8;
     ctx.fillRect(0,-4,w/2+12,8);
     ctx.shadowBlur=0;
+    // 皮肤装饰
+    if(isPlayer&&skin){
+      if(skin.style==='dots'){
+        ctx.fillStyle=skin.acc;ctx.globalAlpha=0.7;
+        for(let r=-2;r<=2;r++)for(let c=-2;c<=2;c++){
+          ctx.beginPath();ctx.arc(r*10,c*9,2.2,0,Math.PI*2);ctx.fill();
+        }
+        ctx.globalAlpha=1;
+      }else if(skin.style==='stripe'){
+        ctx.fillStyle=skin.acc;ctx.globalAlpha=0.8;
+        for(let s=-2;s<=2;s++){ctx.save();ctx.translate(0,s*11);ctx.fillRect(-w/2+11,0,w-22,5);ctx.restore();}
+        ctx.globalAlpha=1;
+      }else if(skin.style==='ring'){
+        ctx.strokeStyle=skin.acc;ctx.lineWidth=3;ctx.globalAlpha=0.9;
+        ctx.beginPath();ctx.arc(0,0,w/4.5+5,0,Math.PI*2);ctx.stroke();
+        ctx.beginPath();ctx.arc(0,0,w/4.5+12,0,Math.PI*2);ctx.stroke();
+        ctx.globalAlpha=1;
+      }else if(skin.style==='star'){
+        ctx.fillStyle=skin.acc;
+        const sx=w/4+8;
+        ctx.beginPath();
+        for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5;ctx.lineTo(Math.cos(a)*sx,Math.sin(a)*sx);const a2=a+Math.PI/5;ctx.lineTo(Math.cos(a2)*sx*0.45,Math.sin(a2)*sx*0.45);}
+        ctx.closePath();ctx.fill();
+      }
+    }
     ctx.fillStyle=C.white;ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
@@ -517,7 +568,7 @@ function drawMenu(){
     if(ctx.roundRect){ctx.roundRect(cx-cw/2,cy,cw,ch,12);ctx.fill();ctx.stroke();}
     else{ctx.fillRect(cx-cw/2,cy,cw,ch);ctx.strokeRect(cx-cw/2,cy,cw,ch);}
     ctx.restore();
-    drawTank(cx,cy+95,-Math.PI/2,60,60,s.color,true);
+    drawTank(cx,cy+95,-Math.PI/2,60,60,s.color,true,skins[selectedSkin]);
     ctx.save();ctx.textAlign='center';
     ctx.font='bold 26px sans-serif';ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=10;
     ctx.fillText(s.name,cx,cy+190);
@@ -542,26 +593,45 @@ function drawMenu(){
     ctx.strokeStyle=md.color;ctx.lineWidth=on?3:2;
     ctx.shadowColor=md.color;ctx.shadowBlur=on?18:5;
     ctx.beginPath();
-    if(ctx.roundRect){ctx.roundRect(md.cx-110,558,220,54,10);ctx.fill();ctx.stroke();}
-    else{ctx.fillRect(md.cx-110,558,220,54);ctx.strokeRect(md.cx-110,558,220,54);}
+    if(ctx.roundRect){ctx.roundRect(md.cx-110,540,220,50,10);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(md.cx-110,540,220,50);ctx.strokeRect(md.cx-110,540,220,50);}
     ctx.shadowBlur=0;ctx.textAlign='center';
-    ctx.fillStyle=on?'#04120a':'#fff';ctx.font='bold 20px sans-serif';
-    ctx.fillText(md.label+(on?'  ✓':''),md.cx,585);
-    ctx.fillStyle=on?'#0a2a1a':'#999';ctx.font='13px sans-serif';
-    ctx.fillText(md.desc,md.cx,604);
+    ctx.fillStyle=on?'#04120a':'#fff';ctx.font='bold 19px sans-serif';
+    ctx.fillText(md.label+(on?'  ✓':''),md.cx,565);
+    ctx.fillStyle=on?'#0a2a1a':'#999';ctx.font='12px sans-serif';
+    ctx.fillText(md.desc,md.cx,583);
   }
+  ctx.restore();
+  // 皮肤选择：4款
+  ctx.save();
+  const skinCx=640,skinY=604,skinGap=70,skinR=18;
+  const skinStart=skinCx-(skins.length-1)*skinGap/2;
+  for(let i=0;i<skins.length;i++){
+    const cx=skinStart+i*skinGap;
+    const on=selectedSkin===i;
+    const col=skins[i].main||ships[selectedShip].color;
+    ctx.beginPath();ctx.arc(cx,skinY,skinR+(on?4:0),0,Math.PI*2);
+    ctx.fillStyle=on?col:'rgba(255,255,255,0.08)';
+    ctx.strokeStyle=col;ctx.lineWidth=on?3:2;ctx.shadowColor=col;ctx.shadowBlur=on?14:4;
+    ctx.fill();ctx.stroke();
+    ctx.shadowBlur=0;
+    // 装饰预览小点
+    ctx.fillStyle=skins[i].acc;ctx.beginPath();ctx.arc(cx,skinY,5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle=C.white;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.shadowBlur=0;
+  ctx.fillText(skins[selectedSkin].name+' SKIN',skinCx,skinY+38);
   ctx.restore();
   ctx.save();
   ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=20;
   ctx.beginPath();
-  if(ctx.roundRect){ctx.roundRect(640-140,632,280,60,12);ctx.fill();}
-  else{ctx.fillRect(640-140,632,280,60);}
-  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
-  ctx.fillText('START',640,674);
+  if(ctx.roundRect){ctx.roundRect(640-130,660,260,48,12);ctx.fill();}
+  else{ctx.fillRect(640-130,660,260,48);}
+  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 26px sans-serif';ctx.textAlign='center';
+  ctx.fillText('START',640,692);
   ctx.restore();
-  ctx.save();ctx.font='16px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;ctx.textAlign='center';
-  ctx.fillText(isTouch?'TAP CARD 选车 · 1/2 模式':'◀▶ 选车 · 1简单 2困难 · ENTER 开始',380,715);
-  ctx.fillText('WASD: MOVE · SPACE: FIRE · P: PAUSE',900,715);
+  ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;ctx.textAlign='center';
+  ctx.fillText(isTouch?'点卡片选车 · 点圆点换皮肤':'◀▶ 选车 · Q/E 换皮肤 · 1简单 2困难 · ENTER 开始',380,716);
+  ctx.fillText('WASD MOVE · SPACE FIRE · P PAUSE',900,716);
   ctx.restore();
   ctx.restore();
 }
@@ -654,7 +724,7 @@ function render(){
     }
   }
   for(const it of items)drawItem(it);
-  if(player.invincible<=0||Math.floor(player.invincible*10)%2===0){drawTank(player.x,player.y,player.angle,player.w,player.h,player.color,true);}
+  if(player.invincible<=0||Math.floor(player.invincible*10)%2===0){drawTank(player.x,player.y,player.angle,player.w,player.h,player.color,true,skins[selectedSkin]);}
   for(const p of particles){ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);ctx.restore();}
   if(state==='playing'||state==='paused')drawHUD();
   if(bossBanner>0&&state==='playing'){
