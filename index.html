@@ -903,6 +903,17 @@ function render(){
     ctx.fillStyle=C.green;ctx.fillRect(a.x-a.w/2,a.y-a.h/2-10,bw,3);
   }
   if(player.invincible<=0||Math.floor(player.invincible*10)%2===0){drawTank(player.x,player.y,player.angle,player.w,player.h,player.color,true,skins[selectedSkin]);}
+  // 无敌护盾光圈
+  if(player.invincible>0){
+    ctx.save();
+    const r=player.w*0.9+Math.sin(gameTime*12)*4;
+    ctx.strokeStyle=skills.newEnemyShield?C.cyan:C.yellow;
+    ctx.shadowColor=skills.newEnemyShield?C.cyan:C.yellow;
+    ctx.shadowBlur=20;ctx.lineWidth=3;
+    ctx.globalAlpha=0.6+Math.sin(gameTime*10)*0.3;
+    ctx.beginPath();ctx.arc(player.x,player.y,r,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
   for(const p of particles){ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);ctx.restore();}
   if(state==='playing'||state==='paused'){drawHUD();drawSkillCards();}
   if(bossBanner>0&&state==='playing'){
