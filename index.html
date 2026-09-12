@@ -128,10 +128,10 @@ window.addEventListener('keydown',e=>{
       if(k==='escape'||k==='backspace')menuPage=1;
     }
   }
-  if(state==='levelclear'&&(e.key==='Enter'||e.key===' '))nextLevel();
-  if(state==='gameover'&&(e.key==='Enter'||e.key===' '))startGame();
-  if(state==='victory'&&(e.key==='Enter'||e.key===' '))startGame();
-  if(state==='skillselect'){
+  else if(state==='levelclear'&&(e.key==='Enter'||e.key===' '))nextLevel();
+  else if(state==='gameover'&&(e.key==='Enter'||e.key===' '))startGame();
+  else if(state==='victory'&&(e.key==='Enter'||e.key===' '))startGame();
+  else if(state==='skillselect'){
     const kn=e.key;
     if(kn==='1')buySkill(0);
     if(kn==='2')buySkill(1);
@@ -139,7 +139,7 @@ window.addEventListener('keydown',e=>{
     if(kn==='4')buySkill(3);
     if(e.key==='Enter'||e.key===' '){state='playing';resumeBGM();}
   }
-  if(state==='playing'&&e.key.toLowerCase()==='p'){state='paused';pauseBGM();}
+  else if(state==='playing'&&e.key.toLowerCase()==='p'){state='paused';pauseBGM();}
   else if(state==='paused'&&e.key.toLowerCase()==='p'){state='playing';resumeBGM();}
 });
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
