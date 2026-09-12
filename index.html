@@ -109,13 +109,24 @@ window.addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();
   if(state==='menu'){
     const k=e.key.toLowerCase();
-    if(k==='arrowleft'||k==='a')selectedShip=(selectedShip+2)%3;
-    if(k==='arrowright'||k==='d')selectedShip=(selectedShip+1)%3;
-    if(k==='q')selectedSkin=(selectedSkin+skins.length-1)%skins.length;
-    if(k==='e')selectedSkin=(selectedSkin+1)%skins.length;
-    if(k==='1')difficulty='easy';
-    if(k==='2')difficulty='hard';
-    if(k==='enter'||k===' ')startGame();
+    if(menuPage===0){
+      // 第1页：战机选择
+      if(k==='arrowleft'||k==='a')selectedShip=(selectedShip+2)%3;
+      if(k==='arrowright'||k==='d')selectedShip=(selectedShip+1)%3;
+      if(k==='enter'||k===' ')menuPage=1;
+    }else if(menuPage===1){
+      // 第2页：皮肤选择
+      if(k==='arrowleft'||k==='a'||k==='q')selectedSkin=(selectedSkin+skins.length-1)%skins.length;
+      if(k==='arrowright'||k==='d'||k==='e')selectedSkin=(selectedSkin+1)%skins.length;
+      if(k==='enter'||k===' ')menuPage=2;
+      if(k==='escape'||k==='backspace')menuPage=0;
+    }else{
+      // 第3页：难度选择
+      if(k==='1'||k==='arrowleft'||k==='a')difficulty='easy';
+      if(k==='2'||k==='arrowright'||k==='d')difficulty='hard';
+      if(k==='enter'||k===' ')startGame();
+      if(k==='escape'||k==='backspace')menuPage=1;
+    }
   }
   if(state==='levelclear'&&(e.key==='Enter'||e.key===' '))nextLevel();
   if(state==='gameover'&&(e.key==='Enter'||e.key===' '))startGame();
@@ -161,20 +172,30 @@ canvas.addEventListener('touchstart',e=>{
   for(const t of e.changedTouches){
     const p=toCanvas(t);
     if(state==='menu'){
-      const cardXs=[300,640,980];
-      let chosen=-1;
-      for(let k=0;k<3;k++){if(p.x>cardXs[k]-145&&p.x<cardXs[k]+145&&p.y>165&&p.y<545)chosen=k;}
-      if(chosen>=0){if(selectedShip===chosen)startGame();else selectedShip=chosen;}
-      else if(p.y>=576&&p.y<=654){
-        // 角色皮肤卡片（5款）
-        const skinCxs=[450,545,640,735,830];
-        for(let i=0;i<skinCxs.length;i++){if(Math.abs(p.x-skinCxs[i])<40){selectedSkin=i;break;}}
+      if(menuPage===0){
+        // 第1页：战机卡片 + NEXT
+        const cardXs=[300,640,980];
+        let chosen=-1;
+        for(let k=0;k<3;k++){if(p.x>cardXs[k]-145&&p.x<cardXs[k]+145&&p.y>165&&p.y<545)chosen=k;}
+        if(chosen>=0){if(selectedShip===chosen)menuPage=1;else selectedShip=chosen;}
+        else if(p.x>500&&p.x<780&&p.y>588&&p.y<652)menuPage=1;
+        return;
       }
-      else if(p.y>=540&&p.y<=590){
-        if(p.x>405&&p.x<625)difficulty='easy';
-        else if(p.x>655&&p.x<875)difficulty='hard';
+      if(menuPage===1){
+        // 第2页：皮肤卡片 + BACK/NEXT
+        const n=skins.length,gap=190,cx0=640-(n-1)*gap/2;
+        for(let i=0;i<n;i++){
+          if(Math.abs(p.x-(cx0+i*gap))<78&&Math.abs(p.y-350)<105){selectedSkin=i;break;}
+        }
+        if(p.x>240&&p.x<480&&p.y>588&&p.y<652)menuPage=0;
+        else if(p.x>800&&p.x<1040&&p.y>588&&p.y<652)menuPage=2;
+        return;
       }
-      else if(p.y>=660&&p.y<=708&&p.x>510&&p.x<770)startGame();
+      // 第3页：难度 + START/BACK
+      if(p.x>320&&p.x<620&&p.y>190&&p.y<430)difficulty='easy';
+      else if(p.x>660&&p.x<960&&p.y>190&&p.y<430)difficulty='hard';
+      else if(p.x>490&&p.x<790&&p.y>475&&p.y<545)startGame();
+      else if(p.x>110&&p.x<290&&p.y>483&&p.y<537)menuPage=1;
       return;
     }
     if(state==='gameover'||state==='victory'){startGame();return;}
@@ -226,6 +247,7 @@ const ships=[
 ];
 let selectedShip=1;
 let selectedSkin=0;
+let menuPage=0; // 0=战机选择 1=皮肤选择 2=难度选择（分3页）
 // 5款角色皮肤：熊大(默认player图)、熊二、吉吉、毛毛、蹦蹦
 const skins=[
   {name:'熊大',img:assets.player,color:C.cyan},
@@ -701,11 +723,38 @@ function drawLoading(){
   ctx.save();ctx.textAlign='center';ctx.font='bold 40px sans-serif';ctx.fillStyle=C.cyan;ctx.shadowColor=C.cyan;ctx.shadowBlur=20;ctx.fillText('LOADING...',W/2,H/2);ctx.font='20px sans-serif';ctx.fillStyle=C.white;ctx.shadowBlur=5;ctx.fillText(imgsLoaded+'/9 ASSETS LOADED',W/2,H/2+40);ctx.restore();
 }
 
+function drawMenuBtn(cx,cy,w,h,label,color){
+  ctx.save();
+  ctx.fillStyle=color;
+  ctx.strokeStyle=color;ctx.lineWidth=3;ctx.shadowColor=color;ctx.shadowBlur=18;
+  ctx.beginPath();
+  if(ctx.roundRect){ctx.roundRect(cx-w/2,cy-h/2,w,h,12);ctx.fill();}
+  else{ctx.fillRect(cx-w/2,cy-h/2,w,h);}
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#04120a';ctx.font='bold 24px sans-serif';ctx.textAlign='center';
+  ctx.fillText(label,cx,cy+9);
+  ctx.restore();
+}
 function drawMenu(){
   ctx.save();ctx.textAlign='center';
-  ctx.font='bold 46px sans-serif';ctx.fillStyle=C.green;ctx.shadowColor=C.green;ctx.shadowBlur=30;ctx.fillText('NEON',300,85);
-  ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.fillText('TANKS',300,135);
-  ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('SELECT YOUR VEHICLE',640,100);
+  // 左上角LOGO
+  ctx.textAlign='left';ctx.font='bold 30px sans-serif';
+  ctx.fillStyle=C.green;ctx.shadowColor=C.green;ctx.shadowBlur=15;ctx.fillText('NEON TANKS',50,58);
+  // 顶部步骤指示器（3个圆点）
+  ctx.textAlign='center';ctx.shadowBlur=0;
+  for(let i=0;i<3;i++){
+    const on=i===menuPage;
+    ctx.beginPath();ctx.arc(590+i*50,48,on?8:5,0,Math.PI*2);
+    ctx.fillStyle=on?C.cyan:'rgba(255,255,255,0.25)';ctx.fill();
+  }
+  if(menuPage===0)drawMenuShip();
+  else if(menuPage===1)drawMenuSkin();
+  else drawMenuMode();
+  ctx.restore();
+}
+// 第1页：战机选择
+function drawMenuShip(){
+  ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('STEP 1/3 · SELECT YOUR VEHICLE 选择战机',640,100);
   const cardXs=[300,640,980];
   for(let k=0;k<3;k++){
     const s=ships[k],cx=cardXs[k],selected=k===selectedShip;
@@ -734,69 +783,85 @@ function drawMenu(){
     }
     ctx.restore();
   }
-  ctx.save();
-  // 模式选择：EASY / HARD
-  const modes=[{id:'easy',label:'EASY 简单',desc:'BOSS 单形态',color:C.green,cx:515},{id:'hard',label:'HARD 困难',desc:'BOSS 双形态',color:C.red,cx:765}];
-  for(const md of modes){
-    const on=difficulty===md.id;
-    ctx.fillStyle=on?md.color:'rgba(255,255,255,0.06)';
-    ctx.strokeStyle=md.color;ctx.lineWidth=on?3:2;
-    ctx.shadowColor=md.color;ctx.shadowBlur=on?18:5;
-    ctx.beginPath();
-    if(ctx.roundRect){ctx.roundRect(md.cx-110,540,220,50,10);ctx.fill();ctx.stroke();}
-    else{ctx.fillRect(md.cx-110,540,220,50);ctx.strokeRect(md.cx-110,540,220,50);}
-    ctx.shadowBlur=0;ctx.textAlign='center';
-    ctx.fillStyle=on?'#04120a':'#fff';ctx.font='bold 19px sans-serif';
-    ctx.fillText(md.label+(on?'  ✓':''),md.cx,565);
-    ctx.fillStyle=on?'#0a2a1a':'#999';ctx.font='12px sans-serif';
-    ctx.fillText(md.desc,md.cx,583);
-  }
+  drawMenuBtn(640,620,280,64,'NEXT ▶',C.cyan);
+  ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;
+  ctx.fillText(isTouch?'点卡片选车 · 点 NEXT 下一步':'◀▶ 选车 · ENTER 下一步',640,700);
   ctx.restore();
-  // 皮肤选择：4款
-  ctx.save();
-  // 角色皮肤预览卡片（5款）
-  const skinCx=640,skinY=615,skinGap=95,skinW=78,skinH=78;
-  const skinStart=skinCx-(skins.length-1)*skinGap/2;
-  for(let i=0;i<skins.length;i++){
-    const cx=skinStart+i*skinGap;
-    const on=selectedSkin===i;
-    const col=skins[i].color;
-    // 卡片背景
+}
+// 第2页：皮肤选择
+function drawMenuSkin(){
+  ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('STEP 2/3 · SELECT SKIN 选择皮肤',640,100);
+  const n=skins.length,gap=190,cx0=640-(n-1)*gap/2,cy=350,cw=155,ch=210;
+  for(let i=0;i<n;i++){
+    const cx=cx0+i*gap,on=selectedSkin===i,col=skins[i].color;
+    ctx.save();
     ctx.fillStyle=on?'rgba(0,240,255,0.15)':'rgba(255,255,255,0.04)';
-    ctx.strokeStyle=col;ctx.lineWidth=on?3:2;
-    ctx.shadowColor=col;ctx.shadowBlur=on?16:4;
+    ctx.strokeStyle=col;ctx.lineWidth=on?4:2;
+    ctx.shadowColor=col;ctx.shadowBlur=on?22:5;
     ctx.beginPath();
-    if(ctx.roundRect){ctx.roundRect(cx-skinW/2,skinY-skinH/2,skinW,skinH,8);ctx.fill();ctx.stroke();}
-    else{ctx.fillRect(cx-skinW/2,skinY-skinH/2,skinW,skinH);ctx.strokeRect(cx-skinW/2,skinY-skinH/2,skinW,skinH);}
+    if(ctx.roundRect){ctx.roundRect(cx-cw/2,cy-ch/2,cw,ch,12);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(cx-cw/2,cy-ch/2,cw,ch);ctx.strokeRect(cx-cw/2,cy-ch/2,cw,ch);}
     ctx.shadowBlur=0;
-    // 角色预览图
+    // 角色预览图（大图）
     const si=skins[i].img;
     if(si&&si.complete&&si.naturalWidth>0){
       const ratio=si.width/si.height;
-      const ph=52, pw=ph*ratio;
-      ctx.drawImage(si,cx-pw/2,skinY-ph/2,pw,ph);
+      const ph=110,pw=ph*ratio;
+      ctx.drawImage(si,cx-pw/2,cy-25,pw,ph);
     }else{
-      ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=10;
-      ctx.beginPath();ctx.arc(cx,skinY,20,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;
+      ctx.beginPath();ctx.arc(cx,cy-25,36,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     }
     // 名字
-    ctx.font='bold 12px sans-serif';ctx.fillStyle=on?col:'rgba(224,247,255,0.8)';
-    ctx.shadowColor=on?col:'transparent';ctx.shadowBlur=on?6:0;ctx.textAlign='center';
-    ctx.fillText(skins[i].name,cx,skinY+skinH/2+16);
+    ctx.font='bold 17px sans-serif';ctx.fillStyle=on?col:'#fff';
+    ctx.shadowColor=on?col:'transparent';ctx.shadowBlur=on?8:0;
+    ctx.fillText(skins[i].name,cx,cy+ch/2-14);
+    if(on){
+      ctx.font='bold 13px sans-serif';ctx.fillStyle=C.cyan;ctx.shadowColor=C.cyan;ctx.shadowBlur=8;
+      ctx.fillText('▶ SELECTED ◀',cx,cy+ch/2+12);
+    }
+    ctx.restore();
   }
+  drawMenuBtn(360,620,240,64,'◀ BACK',C.yellow);
+  drawMenuBtn(920,620,240,64,'NEXT ▶',C.cyan);
+  ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;
+  ctx.fillText(isTouch?'点卡片选皮肤 · 点 NEXT 下一步':'◀▶/Q·E 换皮肤 · ENTER 下一步 · ESC 返回',640,700);
   ctx.restore();
-  ctx.save();
-  ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=20;
-  ctx.beginPath();
-  if(ctx.roundRect){ctx.roundRect(640-130,660,260,48,12);ctx.fill();}
-  else{ctx.fillRect(640-130,660,260,48);}
-  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 26px sans-serif';ctx.textAlign='center';
-  ctx.fillText('START',640,692);
-  ctx.restore();
-  ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;ctx.textAlign='center';
-  ctx.fillText(isTouch?'点卡片选车 · 点角色换皮肤':'◀▶ 选车 · Q/E 换皮肤 · 1简单 2困难 · ENTER 开始',380,716);
-  ctx.fillText('WASD MOVE · SPACE FIRE · P PAUSE',900,716);
-  ctx.restore();
+}
+// 第3页：难度选择
+function drawMenuMode(){
+  ctx.font='19px sans-serif';ctx.fillStyle=C.white;ctx.shadowColor=C.white;ctx.shadowBlur=5;ctx.fillText('STEP 3/3 · SELECT DIFFICULTY 选择难度',640,100);
+  ctx.font='17px sans-serif';ctx.fillStyle='#aaa';ctx.shadowBlur=0;
+  ctx.fillText('战车: '+ships[selectedShip].name+' · 皮肤: '+skins[selectedSkin].name,640,140);
+  const modes=[
+    {id:'easy',label:'EASY 简单',desc:'BOSS 单形态',desc2:'轻松上手',color:C.green,cx:470},
+    {id:'hard',label:'HARD 困难',desc:'BOSS 双形态',desc2:'半血狂暴变身',color:C.red,cx:810}
+  ];
+  for(const md of modes){
+    const on=difficulty===md.id;
+    ctx.save();
+    ctx.fillStyle=on?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.03)';
+    ctx.strokeStyle=md.color;ctx.lineWidth=on?5:2;
+    ctx.shadowColor=md.color;ctx.shadowBlur=on?28:6;
+    ctx.beginPath();
+    if(ctx.roundRect){ctx.roundRect(md.cx-150,190,300,240,14);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(md.cx-150,190,300,240);ctx.strokeRect(md.cx-150,190,300,240);}
+    ctx.shadowBlur=0;ctx.textAlign='center';
+    ctx.fillStyle=md.color;ctx.shadowColor=md.color;ctx.shadowBlur=10;
+    ctx.font='bold 34px sans-serif';ctx.fillText(md.label,md.cx,290);
+    ctx.shadowBlur=0;
+    ctx.font='18px sans-serif';ctx.fillStyle='#ccc';ctx.fillText(md.desc,md.cx,340);
+    ctx.fillStyle='#999';ctx.fillText(md.desc2,md.cx,370);
+    if(on){
+      ctx.font='bold 19px sans-serif';ctx.fillStyle=md.color;ctx.shadowColor=md.color;ctx.shadowBlur=10;
+      ctx.fillText('✓ SELECTED',md.cx,410);
+    }
+    ctx.restore();
+  }
+  drawMenuBtn(640,510,300,70,'START ▶',C.yellow);
+  drawMenuBtn(200,510,180,54,'◀ BACK',C.yellow);
+  ctx.save();ctx.font='14px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;
+  ctx.fillText(isTouch?'点选难度 · 点 START 开战':'1 简单 · 2 困难 · ENTER 开战 · ESC 返回',640,700);
   ctx.restore();
 }
 
