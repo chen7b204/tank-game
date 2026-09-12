@@ -131,15 +131,16 @@ window.addEventListener('keydown',e=>{
   if(state==='levelclear'&&(e.key==='Enter'||e.key===' '))nextLevel();
   if(state==='gameover'&&(e.key==='Enter'||e.key===' '))startGame();
   if(state==='victory'&&(e.key==='Enter'||e.key===' '))startGame();
-  if(state==='playing'&&e.key.toLowerCase()==='p'){state='paused';pauseBGM();}
-  else if(state==='paused'&&e.key.toLowerCase()==='p'){state='playing';resumeBGM();}
-  if(state==='playing'){
+  if(state==='skillselect'){
     const kn=e.key;
     if(kn==='1')buySkill(0);
     if(kn==='2')buySkill(1);
     if(kn==='3')buySkill(2);
     if(kn==='4')buySkill(3);
+    if(e.key==='Enter'||e.key===' '){state='playing';resumeBGM();}
   }
+  if(state==='playing'&&e.key.toLowerCase()==='p'){state='paused';pauseBGM();}
+  else if(state==='paused'&&e.key.toLowerCase()==='p'){state='playing';resumeBGM();}
 });
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
@@ -200,18 +201,21 @@ canvas.addEventListener('touchstart',e=>{
     }
     if(state==='gameover'||state==='victory'){startGame();return;}
     if(state==='levelclear'){nextLevel();return;}
+    if(state==='skillselect'){
+      // 技能卡购买（4张大卡片）
+      const xs=[140,400,660,920];
+      for(let i=0;i<4;i++){
+        if(p.x>xs[i]&&p.x<xs[i]+220&&p.y>180&&p.y<460){buySkill(i);break;}
+      }
+      if(p.x>490&&p.x<790&&p.y>525&&p.y<595){state='playing';resumeBGM();}
+      return;
+    }
     if(p.x>W-70&&p.y<70){
       if(state==='playing'){state='paused';pauseBGM();}
       else if(state==='paused'){state='playing';resumeBGM();}
       continue;
     }
     if(state!=='playing')continue;
-    // 技能卡点击区域（左下角4个卡片）
-    if(p.y>250&&p.y<400&&p.x<250){
-      const slot=Math.floor(p.x/62);
-      if(slot>=0&&slot<4)buySkill(slot);
-      continue;
-    }
     if(p.x<W/2&&!joy.active){joy.active=true;joy.id=t.identifier;joy.ox=p.x;joy.oy=p.y;joy.dx=0;joy.dy=0;}
     else if(p.x>=W/2&&fireTouchId===null){fireTouchId=t.identifier;touchFiring=true;}
   }
@@ -337,14 +341,13 @@ function spawnBulletStorm(){
   addParticle(player.x,player.y,C.magenta,20);
 }
 
-// 购买技能卡（按得分购买，本关生效）
+// 购买技能卡（每轮开始前的选技界面购买，本关生效）
 function buySkill(idx){
   const def=skillDefs[idx];
   if(!def||skills[def.id])return;
   if(score<def.cost)return;
   score-=def.cost;
   skills[def.id]=true;
-  addParticle(player.x,player.y,C.cyan,15);
 }
 
 function fireBullet(){
@@ -398,7 +401,7 @@ function hitWall(x,y,r){
 
 function startGame(){
   if(state==='loading')return;
-  state='playing';score=0;gameTime=0;level=1;
+  score=0;gameTime=0;level=1;
   const s=ships[selectedShip];
   player.x=W/2;player.y=H-120;player.angle=-Math.PI/2;
   player.speed=s.speed;player.maxHp=s.hp;player.hp=s.hp;
@@ -412,12 +415,12 @@ function startGame(){
   kills=0;bossSpawned=false;bossBanner=0;
   buildWalls();
   startBGM();
+  state='skillselect'; // 每轮开始前先选技能
 }
 
 function nextLevel(){
   level++;
   if(level>4){state='victory';return;}
-  state='playing';
   player.hp=Math.min(player.maxHp,player.hp+1);
   bullets=[];enemies=[];enemyBullets=[];particles=[];items=[];
   allies=[];
@@ -426,6 +429,7 @@ function nextLevel(){
   killCountForAlly=0;
   kills=0;bossSpawned=false;
   buildWalls();
+  state='skillselect'; // 每轮开始前先选技能
 }
 
 function update(dt){
@@ -681,41 +685,91 @@ function drawHUD(){
   ctx.restore();
 }
 
-// 技能卡 UI（左下角，4个卡片）
+// 已激活技能展示（游戏左下角，仅显示，购买在每轮开始前的选技界面）
 function drawSkillCards(){
   ctx.save();
   const cw=58,ch=130,cx0=12,cy0=252;
+  let col=0;
   for(let i=0;i<skillDefs.length;i++){
     const def=skillDefs[i];
-    const x=cx0+i*62,y=cy0;
-    const owned=skills[def.id];
-    const canAfford=score>=def.cost;
-    ctx.fillStyle=owned?'rgba(0,255,156,0.2)':(canAfford?'rgba(0,240,255,0.1)':'rgba(100,100,100,0.15)');
-    ctx.strokeStyle=owned?C.green:(canAfford?C.cyan:'#555');
-    ctx.lineWidth=owned?2:1.5;
-    ctx.shadowColor=owned?C.green:(canAfford?C.cyan:'transparent');
-    ctx.shadowBlur=owned?8:(canAfford?6:0);
+    if(!skills[def.id])continue;
+    const x=cx0+col*62,y=cy0;col++;
+    ctx.fillStyle='rgba(0,255,156,0.2)';
+    ctx.strokeStyle=C.green;
+    ctx.lineWidth=2;
+    ctx.shadowColor=C.green;
+    ctx.shadowBlur=8;
     ctx.beginPath();
     if(ctx.roundRect){ctx.roundRect(x,y,cw,ch,6);ctx.fill();ctx.stroke();}
     else{ctx.fillRect(x,y,cw,ch);ctx.strokeRect(x,y,cw,ch);}
     ctx.shadowBlur=0;
-    // 编号
-    ctx.fillStyle=owned?C.green:(canAfford?C.cyan:'#888');
-    ctx.font='bold 14px sans-serif';ctx.textAlign='center';
-    ctx.fillText('['+(i+1)+']',x+cw/2,y+18);
     // 名称
-    ctx.fillStyle=owned?C.green:C.white;
-    ctx.font='bold 12px sans-serif';
-    ctx.fillText(def.name,x+cw/2,y+40);
+    ctx.fillStyle=C.green;
+    ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText(def.name,x+cw/2,y+24);
     // 描述
     ctx.fillStyle='#bbb';ctx.font='10px sans-serif';
     const words=def.desc.match(/.{1,6}/g)||[def.desc];
-    for(let w=0;w<Math.min(words.length,3);w++){ctx.fillText(words[w],x+cw/2,y+58+w*12);}
-    // 价格
-    ctx.fillStyle=owned?C.green:(canAfford?C.yellow:'#888');
+    for(let w=0;w<Math.min(words.length,3);w++){ctx.fillText(words[w],x+cw/2,y+48+w*12);}
+    // 状态
     ctx.font='bold 13px sans-serif';
-    ctx.fillText(owned?'已激活':def.cost+'分',x+cw/2,y+ch-12);
+    ctx.fillText('已激活',x+cw/2,y+ch-12);
   }
+  ctx.restore();
+}
+
+// 选技界面（每轮开始前）
+function drawSkillSelect(){
+  ctx.save();ctx.textAlign='center';
+  ctx.font='bold 34px sans-serif';ctx.fillStyle=C.cyan;ctx.shadowColor=C.cyan;ctx.shadowBlur=20;
+  ctx.fillText('LEVEL '+level+' · SELECT SKILLS 技能选择',640,90);
+  ctx.shadowBlur=0;
+  ctx.font='22px sans-serif';ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=8;
+  ctx.fillText('当前得分: '+score,640,135);
+  ctx.shadowBlur=0;
+  // 4张大技能卡
+  const xs=[140,400,660,920],cy=180,cw=220,ch=280;
+  for(let i=0;i<skillDefs.length;i++){
+    const def=skillDefs[i];
+    const x=xs[i],owned=skills[def.id],canAfford=score>=def.cost;
+    const col=owned?C.green:(canAfford?C.cyan:'#666');
+    ctx.save();
+    ctx.fillStyle=owned?'rgba(0,255,156,0.18)':(canAfford?'rgba(0,240,255,0.1)':'rgba(100,100,100,0.12)');
+    ctx.strokeStyle=col;ctx.lineWidth=owned?4:2;
+    ctx.shadowColor=col;ctx.shadowBlur=owned?25:(canAfford?15:0);
+    ctx.beginPath();
+    if(ctx.roundRect){ctx.roundRect(x,cy,cw,ch,14);ctx.fill();ctx.stroke();}
+    else{ctx.fillRect(x,cy,cw,ch);ctx.strokeRect(x,cy,cw,ch);}
+    ctx.shadowBlur=0;
+    ctx.textAlign='center';
+    // 编号
+    ctx.fillStyle=col;ctx.font='bold 20px sans-serif';
+    ctx.fillText('['+(i+1)+']',x+cw/2,cy+38);
+    // 名称
+    ctx.font='bold 24px sans-serif';
+    ctx.fillText(def.name,x+cw/2,cy+80);
+    // 描述（6字换行）
+    ctx.fillStyle='#ccc';ctx.font='15px sans-serif';
+    const words=def.desc.match(/.{1,8}/g)||[def.desc];
+    for(let w=0;w<Math.min(words.length,3);w++){ctx.fillText(words[w],x+cw/2,cy+130+w*24);}
+    // 价格/状态
+    ctx.fillStyle=owned?C.green:(canAfford?C.yellow:'#888');
+    ctx.font='bold 20px sans-serif';
+    ctx.fillText(owned?'✓ 已激活':def.cost+' 分',x+cw/2,cy+ch-30);
+    ctx.restore();
+  }
+  // START 按钮
+  ctx.save();
+  ctx.fillStyle=C.yellow;ctx.shadowColor=C.yellow;ctx.shadowBlur=20;
+  ctx.beginPath();
+  if(ctx.roundRect){ctx.roundRect(640-150,525,300,70,14);ctx.fill();}
+  else{ctx.fillRect(640-150,525,300,70);}
+  ctx.shadowBlur=0;ctx.fillStyle='#04120a';ctx.font='bold 28px sans-serif';
+  ctx.fillText('START ▶',640,570);
+  ctx.restore();
+  ctx.save();ctx.font='15px sans-serif';ctx.fillStyle='#888';ctx.shadowBlur=0;
+  ctx.fillText(isTouch?'点卡片购买技能 · 点 START 开战':'按 1-4 购买技能 · ENTER 开战',640,660);
+  ctx.restore();
   ctx.restore();
 }
 
@@ -921,6 +975,7 @@ function render(){
   if(state==='loading'){drawLoading();if(imgsLoaded>=9)state='menu';return;}
   if(state==='menu'){drawMenu();return;}
   if(state==='levelclear'){drawLevelClear();return;}
+  if(state==='skillselect'){drawSkillSelect();return;}
   if(state==='victory'){drawVictory();return;}
 
   for(const w of walls){
